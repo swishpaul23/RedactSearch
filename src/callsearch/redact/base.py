@@ -1,0 +1,42 @@
+"""Shared redaction interface: Span, the Detector protocol, and the detector registry."""
+
+from __future__ import annotations
+
+import importlib
+from dataclasses import dataclass
+from typing import Protocol
+
+
+@dataclass(frozen=True)
+class Span:
+    start: int
+    end: int
+    type: str
+    source: str
+
+    def overlaps(self, other: "Span") -> bool:
+        return self.start < other.end and other.start < self.end
+
+
+class Detector(Protocol):
+    name: str
+
+    def detect(self, text: str) -> list[Span]: ...
+
+
+# name -> "module:Class". Imported lazily so heavy Phase 2 deps load only when used.
+# Phase 2 adds: "ner", "llm", "presidio", "pipeline".
+_REGISTRY: dict[str, str] = {
+    "regex": "callsearch.redact.regex:RegexDetector",
+}
+
+
+def available_detectors() -> list[str]:
+    return sorted(_REGISTRY)
+
+
+def get_detector(name: str, **kwargs) -> Detector:
+    if name not in _REGISTRY:
+        raise KeyError(f"unknown detector {name!r}; available: {available_detectors()}")
+    module, cls = _REGISTRY[name].split(":")
+    return getattr(importlib.import_module(module), cls)(**kwargs)
