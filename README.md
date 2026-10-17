@@ -29,6 +29,23 @@ Each call in `calls.jsonl` has `turns`, `labels` (PII spans with character offse
 
 All personal data is fake, generated with Faker and checksum generators. `data/raw/` is gitignored, and generated calls or downloaded datasets must never be committed.
 
+## Redaction eval
+
+```powershell
+python -m callsearch.eval.redaction_eval --detector regex --split train
+```
+
+The eval prints per-type precision/recall/F1, exact-match recall, a leak check and distractor false positives. It saves results to `results/eval_<detector>_<split>.json` (for example `results/eval_regex_test.json`). Pass `--json PATH` to save somewhere else, or `--no-save` to only print. Tune against `train`; run `test` only for reported numbers.
+
+## Data and results layout
+
+| Path | Contents | In git |
+|---|---|---|
+| `data/raw/` | Generated calls with PII, plus downloaded MultiWOZ | No (gitignored) |
+| `data/redacted/` | Redacted transcripts only. The index builder reads from here. | Yes |
+| `data/index/` | Vector index built from redacted text | Yes |
+| `results/` | Eval metrics only (counts, rates, type names), never transcript text. A test enforces this. | Yes |
+
 ## Third-party data and licenses
 
 - **MultiWOZ 2.2**, from [budzianowski/multiwoz](https://github.com/budzianowski/multiwoz). MIT License, Copyright (c) 2019 Paweł Budzianowski. It is downloaded on first run to `data/raw/multiwoz/` (`train/dialogues_001.json`, `test/dialogues_001.json`) and not redistributed here.

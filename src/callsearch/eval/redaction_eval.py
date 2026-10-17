@@ -1,8 +1,9 @@
 """Score redaction against ground-truth PII spans (recall-weighted).
 
-python -m callsearch.eval.redaction_eval --detector regex --split train [--json out.json]
+python -m callsearch.eval.redaction_eval --detector regex --split train [--json PATH | --no-save]
 
-Prints metrics only, never transcript text, so raw PII is not logged.
+Saves to results/eval_<detector>_<split>.json by default. Prints and saves metrics only,
+never transcript text, so raw PII is not logged.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from callsearch.redact.merge import redact
 
 PII_TYPES = ["PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"]
 DEFAULT_DATA = Path("data/raw/calls.jsonl")
+RESULTS_DIR = Path("results")  # tracked in git; metrics only. data/redacted/ is for redacted transcripts only.
 
 
 def _match(preds: list[Span], golds: list[dict]) -> tuple[list[tuple[Span, dict]], list[Span], list[dict]]:
@@ -129,22 +131,33 @@ def format_table(res: dict, split: str) -> str:
     return "\n".join(lines)
 
 
+def default_results_path(detector: str, split: str) -> Path:
+    return RESULTS_DIR / f"eval_{detector}_{split}.json"
+
+
+def save_results(res: dict, path: Path) -> None:
+    """Results are metrics only (counts, rates, type names); never transcript text."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(res, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Evaluate a PII detector against labeled calls.")
     p.add_argument("--detector", default="regex", choices=available_detectors())
     p.add_argument("--split", default="train", choices=["train", "test", "all"])
     p.add_argument("--data", type=Path, default=DEFAULT_DATA)
-    p.add_argument("--json", type=Path, help="save results as JSON")
+    p.add_argument("--json", type=Path, help="results path (default: results/eval_<detector>_<split>.json)")
+    p.add_argument("--no-save", action="store_true", help="print only, do not save results")
     args = p.parse_args()
 
     calls = [c for c in read_jsonl(args.data) if args.split == "all" or c["split"] == args.split]
     res = evaluate(calls, get_detector(args.detector))
     res["split"] = args.split
     print(format_table(res, args.split))
-    if args.json:
-        args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps(res, indent=2), encoding="utf-8")
-        print(f"\nSaved {args.json}")
+    if not args.no_save:
+        path = args.json or default_results_path(args.detector, args.split)
+        save_results(res, path)
+        print(f"\nSaved {path}")
 
 
 if __name__ == "__main__":

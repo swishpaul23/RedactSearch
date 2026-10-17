@@ -1,8 +1,15 @@
-"""Tests for redaction_eval metrics on a tiny hand-made fixture."""
+"""Tests for redaction_eval metrics on a tiny hand-made fixture, and the results file format."""
+
+import json
+import re
+import sys
+from pathlib import Path
 
 import pytest
 
-from callsearch.eval.redaction_eval import evaluate
+from callsearch.data.generator import write_jsonl
+from callsearch.eval import redaction_eval
+from callsearch.eval.redaction_eval import evaluate, save_results
 from callsearch.redact.base import Span
 
 TEXT = "Card 4539 1488 0343 6467, call 604-555-0182, order 1111 2222 3333 4444, I'm Ann Lee."
@@ -65,3 +72,74 @@ def test_one_to_one_matching():
 
     card = evaluate(calls, Twice())["per_type"]["CARD"]
     assert (card["tp"], card["fp"], card["fn"]) == (1, 1, 0)
+
+
+# --- results files: metrics only, never transcript text ----------------------
+
+METRIC_KEYS = {"precision", "recall", "f1", "exact_recall", "leak_rate", "tp", "fp", "fn", "support", "leaked"}
+TOP_KEYS = {"detector", "split", "n_calls", "per_type", "micro", "micro_excl_person", "distractor_fp"}
+TYPE_NAME = re.compile(r"^[A-Z_]{2,20}$")
+NAME = re.compile(r"^[a-z_]{1,20}$")
+
+
+def assert_metrics_only(res: dict) -> None:
+    assert set(res) <= TOP_KEYS and {"detector", "per_type", "micro"} <= set(res)
+    assert NAME.match(res["detector"])
+    if "split" in res:
+        assert res["split"] in {"train", "test", "all"}
+    assert type(res["n_calls"]) is int
+
+    def metrics(m: dict) -> None:
+        assert set(m) == METRIC_KEYS
+        assert all(type(v) in (int, float) for v in m.values())
+
+    for group in ("micro", "micro_excl_person"):
+        metrics(res[group])
+    for t, m in res["per_type"].items():
+        assert TYPE_NAME.match(t)
+        metrics(m)
+    for t, d in res.get("distractor_fp", {}).items():
+        assert TYPE_NAME.match(t)
+        assert set(d) == {"flagged", "total"} and all(type(v) is int for v in d.values())
+
+
+def test_saved_results_are_metrics_only(tmp_path):
+    res = evaluate(CALLS, FakeDetector())
+    res["split"] = "test"
+    path = tmp_path / "eval.json"
+    save_results(res, path)
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert_metrics_only(loaded)
+    assert TEXT not in path.read_text(encoding="utf-8")
+    for label in CALLS[0]["labels"]:
+        assert label["value"] not in path.read_text(encoding="utf-8")
+
+
+RESULTS = Path(__file__).resolve().parents[1] / "results"
+
+
+@pytest.mark.parametrize("path", sorted(RESULTS.glob("*.json")), ids=lambda p: p.name)
+def test_committed_results_are_metrics_only(path):
+    assert_metrics_only(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _run_cli(monkeypatch, tmp_path, *extra):
+    data = tmp_path / "calls.jsonl"
+    write_jsonl(CALLS, data)
+    monkeypatch.setattr(redaction_eval, "RESULTS_DIR", tmp_path / "results")
+    monkeypatch.setattr(sys, "argv", ["redaction_eval", "--split", "test", "--data", str(data), *extra])
+    redaction_eval.main()
+
+
+def test_cli_saves_to_default_path(monkeypatch, tmp_path):
+    _run_cli(monkeypatch, tmp_path)
+    out = tmp_path / "results" / "eval_regex_test.json"
+    assert_metrics_only(json.loads(out.read_text(encoding="utf-8")))
+
+
+def test_cli_json_override_and_no_save(monkeypatch, tmp_path):
+    _run_cli(monkeypatch, tmp_path, "--json", str(tmp_path / "custom.json"))
+    assert (tmp_path / "custom.json").exists() and not (tmp_path / "results").exists()
+    (tmp_path / "custom.json").unlink()
+    _run_cli(monkeypatch, tmp_path, "--no-save")
+    assert not (tmp_path / "custom.json").exists() and not (tmp_path / "results").exists()
