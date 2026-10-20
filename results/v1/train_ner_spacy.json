@@ -1,0 +1,93 @@
+{
+  "base": "sm",
+  "n_train_examples": 1552,
+  "n_dev_examples": 301,
+  "n_train_calls": 119,
+  "n_dev_calls": 21,
+  "n_person_labels": 327,
+  "failed_alignments": 0,
+  "epochs_run": 11,
+  "best_epoch": 6,
+  "best_dev_f1": 1.0,
+  "train_seconds": 149.3,
+  "model_size_mb": 7.77,
+  "history": [
+    {
+      "epoch": 1,
+      "loss": 688.209,
+      "dev_precision": 0.8305084745762712,
+      "dev_recall": 1.0,
+      "dev_f1": 0.9074074074074074
+    },
+    {
+      "epoch": 2,
+      "loss": 16.928,
+      "dev_precision": 1.0,
+      "dev_recall": 0.9387755102040817,
+      "dev_f1": 0.968421052631579
+    },
+    {
+      "epoch": 3,
+      "loss": 8.28,
+      "dev_precision": 1.0,
+      "dev_recall": 0.9795918367346939,
+      "dev_f1": 0.9896907216494846
+    },
+    {
+      "epoch": 4,
+      "loss": 1.974,
+      "dev_precision": 0.9245283018867925,
+      "dev_recall": 1.0,
+      "dev_f1": 0.9607843137254902
+    },
+    {
+      "epoch": 5,
+      "loss": 2.956,
+      "dev_precision": 0.9245283018867925,
+      "dev_recall": 1.0,
+      "dev_f1": 0.9607843137254902
+    },
+    {
+      "epoch": 6,
+      "loss": 0.0,
+      "dev_precision": 1.0,
+      "dev_recall": 1.0,
+      "dev_f1": 1.0
+    },
+    {
+      "epoch": 7,
+      "loss": 0.059,
+      "dev_precision": 1.0,
+      "dev_recall": 1.0,
+      "dev_f1": 1.0
+    },
+    {
+      "epoch": 8,
+      "loss": 22.09,
+      "dev_precision": 0.8305084745762712,
+      "dev_recall": 1.0,
+      "dev_f1": 0.9074074074074074
+    },
+    {
+      "epoch": 9,
+      "loss": 5.178,
+      "dev_precision": 0.98,
+      "dev_recall": 1.0,
+      "dev_f1": 0.98989898989899
+    },
+    {
+      "epoch": 10,
+      "loss": 0.325,
+      "dev_precision": 0.9607843137254902,
+      "dev_recall": 1.0,
+      "dev_f1": 0.98
+    },
+    {
+      "epoch": 11,
+      "loss": 6.068,
+      "dev_precision": 0.98,
+      "dev_recall": 1.0,
+      "dev_f1": 0.98989898989899
+    }
+  ]
+}

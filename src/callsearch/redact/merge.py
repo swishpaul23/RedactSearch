@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from callsearch.redact.base import Span
 
-# Higher-priority types win overlaps. Types not listed (e.g. PERSON) rank below all of these.
-PRIORITY = ["CARD", "SIN", "ACCOUNT", "EMAIL", "PHONE"]
+# Higher-priority types win overlaps. Types not listed rank below all of these.
+PRIORITY = ["CARD", "SIN", "ACCOUNT", "EMAIL", "PHONE", "PERSON"]
 
 
 def _rank(span: Span) -> int:

@@ -4,3 +4,4 @@ __pycache__/
 data/raw/
 .env
 *.egg-info/
+models/

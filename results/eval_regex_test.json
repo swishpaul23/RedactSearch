@@ -1,6 +1,6 @@
 {
   "detector": "regex",
-  "n_calls": 60,
+  "n_calls": 100,
   "per_type": {
     "PERSON": {
       "precision": 0.0,
@@ -8,20 +8,20 @@
       "f1": 0.0,
       "tp": 0,
       "fp": 0,
-      "fn": 135,
-      "support": 135,
+      "fn": 266,
+      "support": 266,
       "exact_recall": 0.0,
-      "leaked": 135,
+      "leaked": 266,
       "leak_rate": 1.0
     },
     "EMAIL": {
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
-      "tp": 27,
+      "tp": 66,
       "fp": 0,
       "fn": 0,
-      "support": 27,
+      "support": 66,
       "exact_recall": 1.0,
       "leaked": 0,
       "leak_rate": 0.0
@@ -30,10 +30,10 @@
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
-      "tp": 29,
+      "tp": 69,
       "fp": 0,
       "fn": 0,
-      "support": 29,
+      "support": 69,
       "exact_recall": 1.0,
       "leaked": 0,
       "leak_rate": 0.0
@@ -42,10 +42,10 @@
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
-      "tp": 29,
+      "tp": 43,
       "fp": 0,
       "fn": 0,
-      "support": 29,
+      "support": 43,
       "exact_recall": 1.0,
       "leaked": 0,
       "leak_rate": 0.0
@@ -54,10 +54,10 @@
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
-      "tp": 12,
+      "tp": 16,
       "fp": 0,
       "fn": 0,
-      "support": 12,
+      "support": 16,
       "exact_recall": 1.0,
       "leaked": 0,
       "leak_rate": 0.0
@@ -66,10 +66,10 @@
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
-      "tp": 12,
+      "tp": 24,
       "fp": 0,
       "fn": 0,
-      "support": 12,
+      "support": 24,
       "exact_recall": 1.0,
       "leaked": 0,
       "leak_rate": 0.0
@@ -77,24 +77,24 @@
   },
   "micro": {
     "precision": 1.0,
-    "recall": 0.44672131147540983,
-    "f1": 0.6175637393767706,
-    "tp": 109,
+    "recall": 0.45041322314049587,
+    "f1": 0.6210826210826211,
+    "tp": 218,
     "fp": 0,
-    "fn": 135,
-    "support": 244,
-    "leaked": 135,
-    "exact_recall": 0.44672131147540983,
-    "leak_rate": 0.5532786885245902
+    "fn": 266,
+    "support": 484,
+    "leaked": 266,
+    "exact_recall": 0.45041322314049587,
+    "leak_rate": 0.5495867768595041
   },
   "micro_excl_person": {
     "precision": 1.0,
     "recall": 1.0,
     "f1": 1.0,
-    "tp": 109,
+    "tp": 218,
     "fp": 0,
     "fn": 0,
-    "support": 109,
+    "support": 218,
     "leaked": 0,
     "exact_recall": 1.0,
     "leak_rate": 0.0
@@ -102,23 +102,23 @@
   "distractor_fp": {
     "AMOUNT": {
       "flagged": 0,
-      "total": 37
+      "total": 53
     },
     "DATE": {
       "flagged": 0,
-      "total": 31
+      "total": 45
     },
     "ORDER_NUMBER": {
       "flagged": 0,
-      "total": 12
+      "total": 20
     },
     "REFERENCE": {
       "flagged": 0,
-      "total": 26
+      "total": 40
     },
     "TIME": {
       "flagged": 0,
-      "total": 21
+      "total": 27
     }
   },
   "split": "test"

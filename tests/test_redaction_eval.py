@@ -86,7 +86,7 @@ def assert_metrics_only(res: dict) -> None:
     assert set(res) <= TOP_KEYS and {"detector", "per_type", "micro"} <= set(res)
     assert NAME.match(res["detector"])
     if "split" in res:
-        assert res["split"] in {"train", "test", "all"}
+        assert res["split"] in {"train", "dev", "test", "all"}
     assert type(res["n_calls"]) is int
 
     def metrics(m: dict) -> None:
@@ -118,9 +118,31 @@ def test_saved_results_are_metrics_only(tmp_path):
 RESULTS = Path(__file__).resolve().parents[1] / "results"
 
 
-@pytest.mark.parametrize("path", sorted(RESULTS.glob("*.json")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", sorted(RESULTS.rglob("eval_*.json")), ids=lambda p: p.name)
 def test_committed_results_are_metrics_only(path):
     assert_metrics_only(json.loads(path.read_text(encoding="utf-8")))
+
+
+TRAIN_KEYS = {"base", "n_train_examples", "n_dev_examples", "n_train_calls", "n_dev_calls", "n_person_labels",
+              "failed_alignments", "epochs_run", "best_epoch", "best_dev_f1", "train_seconds", "model_size_mb",
+              "history"}
+EPOCH_KEYS = {"epoch", "loss", "dev_precision", "dev_recall", "dev_f1"}
+
+
+@pytest.mark.parametrize("path", sorted(RESULTS.rglob("train_*.json")), ids=lambda p: p.name)
+def test_training_summaries_are_metrics_only(path):
+    res = json.loads(path.read_text(encoding="utf-8"))
+    assert set(res) == TRAIN_KEYS
+    assert res["base"] in {"sm", "blank"}
+    assert all(type(v) in (int, float) for k, v in res.items() if k not in {"base", "history"})
+    for row in res["history"]:
+        assert set(row) == EPOCH_KEYS and all(type(v) in (int, float) for v in row.values())
+
+
+def test_results_dir_has_only_known_files():
+    """results/ (including archived subfolders like v1/) holds only eval/train metric files."""
+    files = [p for p in RESULTS.rglob("*") if p.is_file()]
+    assert all(p.name.startswith(("eval_", "train_")) and p.suffix == ".json" for p in files), files
 
 
 def _run_cli(monkeypatch, tmp_path, *extra):

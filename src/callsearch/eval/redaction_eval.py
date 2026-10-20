@@ -1,6 +1,6 @@
 """Score redaction against ground-truth PII spans (recall-weighted).
 
-python -m callsearch.eval.redaction_eval --detector regex --split train [--json PATH | --no-save]
+python -m callsearch.eval.redaction_eval --detector regex --split dev [--json PATH | --no-save]
 
 Saves to results/eval_<detector>_<split>.json by default. Prints and saves metrics only,
 never transcript text, so raw PII is not logged.
@@ -22,7 +22,7 @@ DEFAULT_DATA = Path("data/raw/calls.jsonl")
 RESULTS_DIR = Path("results")  # tracked in git; metrics only. data/redacted/ is for redacted transcripts only.
 
 
-def _match(preds: list[Span], golds: list[dict]) -> tuple[list[tuple[Span, dict]], list[Span], list[dict]]:
+def match_spans(preds: list[Span], golds: list[dict]) -> tuple[list[tuple[Span, dict]], list[Span], list[dict]]:
     """Greedy one-to-one: each pred takes the unmatched same-type gold it overlaps most."""
     matched, fps, free = [], [], list(golds)
     for p in sorted(preds, key=lambda s: s.start):
@@ -57,7 +57,7 @@ def evaluate(calls: list[dict], detector: Detector) -> dict:
             distractors = [d for d in call.get("distractors", []) if d["turn_id"] == tid]
             preds = detector.detect(text)
 
-            matched, fps, fns = _match(preds, golds)
+            matched, fps, fns = match_spans(preds, golds)
             for p, g in matched:
                 tp[g["type"]] += 1
                 exact[g["type"]] += (p.start, p.end) == (g["start"], g["end"])
@@ -144,7 +144,7 @@ def save_results(res: dict, path: Path) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description="Evaluate a PII detector against labeled calls.")
     p.add_argument("--detector", default="regex", choices=available_detectors())
-    p.add_argument("--split", default="train", choices=["train", "test", "all"])
+    p.add_argument("--split", default="dev", choices=["train", "dev", "test", "all"])
     p.add_argument("--data", type=Path, default=DEFAULT_DATA)
     p.add_argument("--json", type=Path, help="results path (default: results/eval_<detector>_<split>.json)")
     p.add_argument("--no-save", action="store_true", help="print only, do not save results")

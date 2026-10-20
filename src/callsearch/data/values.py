@@ -14,6 +14,26 @@ CARD_PREFIXES = ["4", "51", "52", "53", "54", "55"]
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
 
+# Name patterns. Train and held-out (dev/test) lists are disjoint, and held-out splits get
+# patterns train never sees: common-word FIRST names, Dr/Mrs titles, particle surnames.
+NAME_STYLES = {
+    "train": {
+        "titles": {"F": ["Ms."], "M": ["Mr."]},
+        "apostrophe": ["O'Brien", "O'Neil", "D'Amico", "O'Reilly"],
+        "word_last": ["Baker", "King", "Hill", "Wood", "Young", "Fox", "Stone", "Little"],
+        "word_first": {"F": [], "M": []},
+        "particle": [],
+    },
+    "heldout": {
+        "titles": {"F": ["Ms.", "Mrs.", "Dr."], "M": ["Mr.", "Dr."]},
+        "apostrophe": ["O'Connor", "D'Souza", "O'Malley", "N'Diaye"],
+        "word_last": ["Rice", "Cook", "Banks", "Snow", "Rivers", "Price", "Lane", "Bush"],
+        "word_first": {"F": ["Grace", "Hope", "June", "Rose", "Joy", "Faith", "April", "Ivy"],
+                       "M": ["Will", "Mark", "Bill", "Art", "Frank", "Chase", "Hunter", "Drew"]},
+        "particle": ["van der Berg", "De Luca", "da Silva", "Le Blanc", "St. Pierre"],
+    },
+}
+
 
 def _ascii(s: str) -> str:
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
@@ -37,8 +57,24 @@ class ValueMaker:
 
     # --- PII -----------------------------------------------------------------
 
-    def person(self) -> tuple[str, str]:
-        return self.faker.first_name(), self.faker.last_name()
+    def person(self, split: str = "train") -> tuple[str, str, str]:
+        """(first, last, title) using the name patterns allowed for this split."""
+        style = NAME_STYLES["train" if split == "train" else "heldout"]
+        gender = self.rng.choice("FM")
+        first = self.faker.first_name_female() if gender == "F" else self.faker.first_name_male()
+        if style["word_first"][gender] and self.rng.random() < 0.25:
+            first = self.rng.choice(style["word_first"][gender])
+        last = self.faker.last_name()
+        r = self.rng.random()
+        if r < 0.15:
+            last = f"{last}-{self.faker.last_name()}"
+        elif r < 0.27:
+            last = self.rng.choice(style["apostrophe"])
+        elif r < 0.37:
+            last = self.rng.choice(style["word_last"])
+        elif r < 0.45 and style["particle"]:
+            last = self.rng.choice(style["particle"])
+        return first, last, self.rng.choice(style["titles"][gender])
 
     def first_name(self) -> str:
         return self.faker.first_name()

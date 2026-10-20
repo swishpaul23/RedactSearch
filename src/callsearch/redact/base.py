@@ -25,9 +25,11 @@ class Detector(Protocol):
 
 
 # name -> "module:Class". Imported lazily so heavy Phase 2 deps load only when used.
-# Phase 2 adds: "ner", "llm", "presidio", "pipeline".
+# Phase 2 adds: "llm", "presidio".
 _REGISTRY: dict[str, str] = {
     "regex": "callsearch.redact.regex:RegexDetector",
+    "ner": "callsearch.redact.ner:SpacyNerDetector",
+    "pipeline": "callsearch.redact.pipeline:PipelineDetector",
 }
 
 

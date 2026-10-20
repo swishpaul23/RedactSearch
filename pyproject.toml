@@ -6,9 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "callsearch"
 version = "0.1.0"
 requires-python = ">=3.11"
+dependencies = [
+    "faker==40.43.0",
+    "spacy==3.8.16",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: trains a (tiny) model; deselect with -m 'not slow'"]

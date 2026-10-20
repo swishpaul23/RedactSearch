@@ -1,0 +1,65 @@
+{
+  "base": "sm",
+  "n_train_examples": 3080,
+  "n_dev_examples": 774,
+  "n_train_calls": 240,
+  "n_dev_calls": 60,
+  "n_person_labels": 778,
+  "failed_alignments": 0,
+  "epochs_run": 7,
+  "best_epoch": 2,
+  "best_dev_f1": 0.8552631578947368,
+  "train_seconds": 169.7,
+  "model_size_mb": 7.78,
+  "history": [
+    {
+      "epoch": 1,
+      "loss": 899.612,
+      "dev_precision": 0.8767123287671232,
+      "dev_recall": 0.8311688311688312,
+      "dev_f1": 0.8533333333333334
+    },
+    {
+      "epoch": 2,
+      "loss": 50.73,
+      "dev_precision": 0.8666666666666667,
+      "dev_recall": 0.8441558441558441,
+      "dev_f1": 0.8552631578947368
+    },
+    {
+      "epoch": 3,
+      "loss": 28.708,
+      "dev_precision": 0.9024390243902439,
+      "dev_recall": 0.7207792207792207,
+      "dev_f1": 0.8014440433212996
+    },
+    {
+      "epoch": 4,
+      "loss": 31.562,
+      "dev_precision": 0.9469026548672567,
+      "dev_recall": 0.6948051948051948,
+      "dev_f1": 0.801498127340824
+    },
+    {
+      "epoch": 5,
+      "loss": 24.315,
+      "dev_precision": 0.8992248062015504,
+      "dev_recall": 0.7532467532467533,
+      "dev_f1": 0.8197879858657244
+    },
+    {
+      "epoch": 6,
+      "loss": 27.523,
+      "dev_precision": 0.8768115942028986,
+      "dev_recall": 0.7857142857142857,
+      "dev_f1": 0.8287671232876712
+    },
+    {
+      "epoch": 7,
+      "loss": 9.745,
+      "dev_precision": 0.8776978417266187,
+      "dev_recall": 0.7922077922077922,
+      "dev_f1": 0.8327645051194539
+    }
+  ]
+}
