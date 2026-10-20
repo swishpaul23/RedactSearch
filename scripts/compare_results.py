@@ -11,9 +11,19 @@ import argparse
 import json
 from pathlib import Path
 
-DETECTORS = ["regex", "ner", "pipeline", "presidio", "presidio_casin"]
+DETECTORS = ["regex", "ner", "pipeline", "presidio", "presidio_casin", "pipeline_llm"]
+LLM_DETECTORS = {"llm", "pipeline_llm"}
 TYPES = ["PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"]
 SUMMARY_TYPES = ["CARD", "SIN", "PERSON"]
+
+
+def label(d: str, res: dict) -> str:
+    """Detector name plus, for LLM detectors, the model and prompt that produced the numbers.
+    Older files saved before provenance was recorded show [model unknown]."""
+    llm = res.get("llm")
+    if llm:
+        return f"{d} [{llm['provider']}:{llm['model']} prompt {llm['prompt_version']}]"
+    return f"{d} [model unknown]" if d in LLM_DETECTORS else d
 
 
 def load(results_dir: Path, split: str) -> dict[str, dict | None]:
@@ -41,11 +51,11 @@ def build_comparison(split: str, results_dir: Path = Path("results")) -> str:
     for d in present:
         for t in TYPES + ["overall"]:
             m = _metrics(res[d], t)
-            lines.append(f"| {d} | {t} | {m['precision']:.3f} | {m['recall']:.3f} | {m['f1']:.3f} "
+            lines.append(f"| {label(d, res[d])} | {t} | {m['precision']:.3f} | {m['recall']:.3f} | {m['f1']:.3f} "
                          f"| {m['leak_rate']:.1%} | {m['support']} |")
 
-    for other in ("presidio", "presidio_casin"):
-        lines += ["", f"## Pipeline vs {other}", ""]
+    for other in ("presidio", "presidio_casin", "pipeline_llm"):
+        lines += ["", f"## Pipeline vs {label(other, res[other]) if res[other] else other}", ""]
         if res["pipeline"] and res[other]:
             lines += [f"| type | pipeline recall | {other} recall | pipeline leak | {other} leak |",
                       "|---|---:|---:|---:|---:|"]

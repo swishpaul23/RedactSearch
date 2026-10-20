@@ -4,5 +4,6 @@ spacy==3.8.16
 # spaCy model (same as: python -m spacy download en_core_web_sm)
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 presidio-analyzer==2.2.364
+anthropic==1.15.0
 # Presidio's default spaCy model (Presidio also auto-downloads it on first use)
 en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl

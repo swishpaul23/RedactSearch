@@ -5,3 +5,4 @@ data/raw/
 .env
 *.egg-info/
 models/
+.cache/

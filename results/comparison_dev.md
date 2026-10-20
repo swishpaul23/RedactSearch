@@ -37,6 +37,13 @@
 | presidio_casin | SIN | 1.000 | 1.000 | 1.000 | 0.0% | 5 |
 | presidio_casin | ACCOUNT | 0.529 | 0.900 | 0.667 | 0.0% | 10 |
 | presidio_casin | overall | 0.907 | 0.944 | 0.925 | 5.2% | 269 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | PERSON | 0.839 | 0.981 | 0.904 | 1.9% | 154 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | EMAIL | 1.000 | 1.000 | 1.000 | 0.0% | 32 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | PHONE | 1.000 | 1.000 | 1.000 | 0.0% | 37 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | CARD | 1.000 | 1.000 | 1.000 | 0.0% | 31 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | SIN | 1.000 | 1.000 | 1.000 | 0.0% | 5 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | ACCOUNT | 1.000 | 1.000 | 1.000 | 0.0% | 10 |
+| pipeline_llm [ollama:qwen2:7b prompt v1] | overall | 0.902 | 0.989 | 0.943 | 1.1% | 269 |
 
 ## Pipeline vs presidio
 
@@ -55,3 +62,12 @@
 | SIN | 1.000 | 1.000 | 0.0% | 0.0% |
 | PERSON | 0.909 | 0.909 | 9.1% | 9.1% |
 | overall | 0.948 | 0.944 | 5.2% | 5.2% |
+
+## Pipeline vs pipeline_llm [ollama:qwen2:7b prompt v1]
+
+| type | pipeline recall | pipeline_llm recall | pipeline leak | pipeline_llm leak |
+|---|---:|---:|---:|---:|
+| CARD | 1.000 | 1.000 | 0.0% | 0.0% |
+| SIN | 1.000 | 1.000 | 0.0% | 0.0% |
+| PERSON | 0.909 | 0.981 | 9.1% | 1.9% |
+| overall | 0.948 | 0.989 | 5.2% | 1.1% |

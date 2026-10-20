@@ -114,7 +114,7 @@ def test_compare_handles_missing_detectors(tmp_path):
     (tmp_path / "eval_regex_dev.json").write_text(json.dumps(_fake_eval("regex")), encoding="utf-8")
     md = cmp.build_comparison("dev", tmp_path)
     assert "| regex | CARD | 1.000 | 0.500 |" in md
-    assert "Missing results (not run yet): ner, pipeline, presidio, presidio_casin" in md
+    assert "Missing results (not run yet): ner, pipeline, presidio, presidio_casin, pipeline_llm" in md
     assert "n/a: needs both pipeline and presidio results." in md
 
 

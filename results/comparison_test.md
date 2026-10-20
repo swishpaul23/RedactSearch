@@ -1,5 +1,7 @@
 # Detector comparison: `test` split
 
+Missing results (not run yet): pipeline_llm
+
 | detector | type | precision | recall | F1 | leak rate | support |
 |---|---|---:|---:|---:|---:|---:|
 | regex | PERSON | 0.000 | 0.000 | 0.000 | 100.0% | 266 |
@@ -55,3 +57,7 @@
 | SIN | 1.000 | 0.750 | 0.0% | 0.0% |
 | PERSON | 0.865 | 0.910 | 14.3% | 9.4% |
 | overall | 0.926 | 0.926 | 7.9% | 5.2% |
+
+## Pipeline vs pipeline_llm
+
+n/a: needs both pipeline and pipeline_llm results.

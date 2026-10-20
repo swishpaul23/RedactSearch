@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from callsearch.redact.merge import redact
 
 PII_TYPES = ["PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"]
 DEFAULT_DATA = Path("data/raw/calls.jsonl")
+LLM_DETECTORS = {"llm", "pipeline_llm"}
 RESULTS_DIR = Path("results")  # tracked in git; metrics only. data/redacted/ is for redacted transcripts only.
 
 
@@ -141,6 +143,15 @@ def save_results(res: dict, path: Path) -> None:
     path.write_text(json.dumps(res, indent=2) + "\n", encoding="utf-8")
 
 
+def _format_plan(plan: dict) -> str:
+    return (f"LLM PLAN  provider: {plan['provider']}  model: {plan['model']}  prompt: {plan['prompt_version']}  "
+            f"workers: {plan['workers']}\n"
+            f"turns {plan['turns']}   requests needed {plan['requests']}   cache hits {plan['cache_hits']}   "
+            f"skipped (nothing left after masking) {plan['skipped_empty']}\n"
+            f"est. tokens in {plan['est_input_tokens']}   out {plan['est_output_tokens']}   "
+            f"est. cost ${plan['est_cost_usd']:.4f}\n")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Evaluate a PII detector against labeled calls.")
     p.add_argument("--detector", default="regex", choices=available_detectors())
@@ -148,12 +159,47 @@ def main() -> None:
     p.add_argument("--data", type=Path, default=DEFAULT_DATA)
     p.add_argument("--json", type=Path, help="results path (default: results/eval_<detector>_<split>.json)")
     p.add_argument("--no-save", action="store_true", help="print only, do not save results")
+    p.add_argument("--dry-run", action="store_true", help="LLM detectors: print request/token estimate, no API calls")
+    p.add_argument("--max-requests", type=int, help="LLM detectors: abort if more API requests would be needed")
+    p.add_argument("--workers", type=int, help="LLM detectors: parallel requests (default: ollama 1, anthropic 8)")
+    p.add_argument("--llm-prompt", help="LLM detectors: prompt version (default: latest)")
     args = p.parse_args()
 
     calls = [c for c in read_jsonl(args.data) if args.split == "all" or c["split"] == args.split]
-    res = evaluate(calls, get_detector(args.detector))
+    kwargs = {}
+    if args.detector in LLM_DETECTORS:
+        kwargs = {"workers": args.workers, **({"prompt_version": args.llm_prompt} if args.llm_prompt else {})}
+    det = get_detector(args.detector, **kwargs)
+    llm_plan, t0 = None, time.perf_counter()
+    if hasattr(det, "prefetch"):  # LLM detectors: estimate first, then fill the cache in parallel
+        from callsearch.redact.llm import BudgetExceeded
+
+        texts = [t["text"] for c in calls for t in c["turns"]]
+        llm_plan = det.plan(texts)
+        print(_format_plan(llm_plan))
+        if args.dry_run:
+            return
+        det.max_requests = args.max_requests
+        try:
+            det.prefetch(texts)
+        except BudgetExceeded as e:
+            raise SystemExit(f"Aborted, nothing saved: {e}")
+    elif args.dry_run:
+        raise SystemExit(f"--dry-run only applies to LLM detectors, not {args.detector!r}")
+
+    res = evaluate(calls, det)
     res["split"] = args.split
+    if hasattr(det, "provenance"):
+        res["llm"] = det.provenance()  # which model + prompt produced these numbers
     print(format_table(res, args.split))
+    if llm_plan is not None:
+        u = det.usage_report()
+        print(f"\nLLM USAGE  provider: {u['provider']}  model: {u['model']}  prompt: {u['prompt_version']}\n"
+              f"requests made {u['requests']}   cache hits before run {llm_plan['cache_hits']}   "
+              f"empty answers {u['empty_answers']}   parse failures (unparseable) {u['parse_failures']}   "
+              f"non-PERSON spans filtered {u['discard_filtered_type']}\n"
+              f"tokens in {u['input_tokens']}   out {u['output_tokens']}   est. cost ${u['est_cost_usd']:.4f}   "
+              f"wall time {time.perf_counter() - t0:.1f}s")
     if not args.no_save:
         path = args.json or default_results_path(args.detector, args.split)
         save_results(res, path)

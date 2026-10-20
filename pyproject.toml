@@ -10,6 +10,7 @@ dependencies = [
     "faker==40.43.0",
     "spacy==3.8.16",
     "presidio-analyzer==2.2.364",
+    "anthropic==1.15.0",
 ]
 
 [tool.setuptools.packages.find]

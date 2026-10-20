@@ -1,0 +1,126 @@
+{
+  "detector": "pipeline_llm",
+  "n_calls": 60,
+  "per_type": {
+    "PERSON": {
+      "precision": 0.8388888888888889,
+      "recall": 0.9805194805194806,
+      "f1": 0.9041916167664671,
+      "tp": 151,
+      "fp": 29,
+      "fn": 3,
+      "support": 154,
+      "exact_recall": 0.9025974025974026,
+      "leaked": 3,
+      "leak_rate": 0.01948051948051948
+    },
+    "EMAIL": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 32,
+      "fp": 0,
+      "fn": 0,
+      "support": 32,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "PHONE": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 37,
+      "fp": 0,
+      "fn": 0,
+      "support": 37,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "CARD": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 31,
+      "fp": 0,
+      "fn": 0,
+      "support": 31,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "SIN": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "support": 5,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "ACCOUNT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 10,
+      "fp": 0,
+      "fn": 0,
+      "support": 10,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    }
+  },
+  "micro": {
+    "precision": 0.9016949152542373,
+    "recall": 0.9888475836431226,
+    "f1": 0.9432624113475178,
+    "tp": 266,
+    "fp": 29,
+    "fn": 3,
+    "support": 269,
+    "leaked": 3,
+    "exact_recall": 0.9442379182156134,
+    "leak_rate": 0.011152416356877323
+  },
+  "micro_excl_person": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 115,
+    "fp": 0,
+    "fn": 0,
+    "support": 115,
+    "leaked": 0,
+    "exact_recall": 1.0,
+    "leak_rate": 0.0
+  },
+  "distractor_fp": {
+    "AMOUNT": {
+      "flagged": 0,
+      "total": 32
+    },
+    "DATE": {
+      "flagged": 0,
+      "total": 20
+    },
+    "ORDER_NUMBER": {
+      "flagged": 0,
+      "total": 6
+    },
+    "REFERENCE": {
+      "flagged": 0,
+      "total": 19
+    }
+  },
+  "split": "dev",
+  "llm": {
+    "provider": "ollama",
+    "model": "qwen2:7b",
+    "prompt_version": "v1"
+  }
+}

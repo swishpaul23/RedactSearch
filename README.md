@@ -44,7 +44,7 @@ All personal data is fake, generated with Faker and checksum generators. `data/r
 python -m callsearch.eval.redaction_eval --detector pipeline --split dev
 ```
 
-The eval prints per-type precision/recall/F1, exact-match recall, a leak check and distractor false positives. Detectors are `regex`, `ner`, and `pipeline` (regex + ner, merged by type priority). Results are saved to `results/eval_<detector>_<split>.json`. Pass `--json PATH` to save somewhere else, or `--no-save` to only print.
+The eval prints per-type precision/recall/F1, exact-match recall, a leak check and distractor false positives. Detectors are `regex`, `ner`, `pipeline` (regex + ner, merged by type priority), `presidio`, `presidio_casin`, `llm` and `pipeline_llm` (see below). Results are saved to `results/eval_<detector>_<split>.json`. Pass `--json PATH` to save somewhere else, or `--no-save` to only print.
 
 **Tune on `dev`. Run `test` only for reported numbers.**
 
@@ -87,6 +87,51 @@ Two Presidio detectors are registered:
 
 **Unmapped** (ignored in scoring): `US_SSN` (a US ID with a different 3-2-4 format; mapping it to SIN would inflate the score), `LOCATION`, `DATE_TIME`, `NRP`, `URL`, `IP_ADDRESS`, `IBAN_CODE`, `CRYPTO`, `MAC_ADDRESS`, `MEDICAL_LICENSE`, `UK_NHS`, `US_ITIN`, `US_DRIVER_LICENSE`, `US_PASSPORT`. The `presidio_baseline` CLI still counts every entity, mapped or not, that lands on a distractor, and lists labels touched only by an unmapped entity. Results go to `results/presidio_extras_<split>.json`.
 
+## LLM layer (Layer 3, add-only)
+
+```powershell
+python -m callsearch.eval.redaction_eval --detector pipeline_llm --split dev --dry-run         # estimate only
+python -m callsearch.eval.redaction_eval --detector pipeline_llm --split dev --max-requests 700
+python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false LLM additions (from cache) -> results/llm_additions_dev.json
+```
+
+Current dev result, from **`ollama:qwen2:7b`, prompt v1, PERSON-only post-filter**, re-scored from the cache:
+
+| | PERSON precision | recall | F1 | leak |
+|---|---:|---:|---:|---:|
+| pipeline | 0.933 | 0.909 | 0.921 | 9.1% |
+| pipeline_llm | 0.839 | 0.981 | 0.904 | 1.9% |
+
+Structured types and distractor false positives are identical to `pipeline` (100% and 0). The Claude provider has not been evaluated yet.
+
+- **`pipeline_llm`**: regex + ner first. The LLM then sees each turn with those spans already masked (`[CARD]`, `[PERSON]`, ...) and lists any names still visible. Its spans are only **added**; base spans are never removed. **`llm`** is the LLM alone, for ablation (it sees the turn unmasked).
+- **PERSON only.** Regex is exact on the structured types. On dev, every EMAIL/PHONE/CARD/SIN/ACCOUNT span the LLM added was a false positive, including all 23 distractor hits. So only PERSON spans are kept, through a post-filter that applies to every prompt version.
+- **Prompt versions:** `v1` asked for all six types; `v2` (the default) asks for PERSON only. Old versions stay in `PROMPTS` so their cached replies can be re-scored with `--llm-prompt v1`. The version is part of the cache key.
+- **Parse accounting:** `{}` and `{"spans": []}` count as valid empty answers. Only unparseable replies count as parse failures.
+- **Concurrency:** Ollama uses 1 worker, since a local model serves one request at a time, and Anthropic uses 8. Override with `--workers N`. Progress prints every 100 requests.
+- **Provenance:** LLM results must name the model that produced them. Every LLM eval JSON stores `"llm": {"provider", "model", "prompt_version"}`, and comparison tables label the detector, e.g. `pipeline_llm [ollama:qwen2:7b prompt v1]`. Files saved before this was recorded show `[model unknown]`.
+- **Offsets are ours.** The model returns `{"spans": [{"text", "type"}]}`, and we find every verbatim occurrence of each substring. We discard:
+  - substrings that aren't in the turn
+  - types outside PERSON / EMAIL / PHONE / CARD / SIN / ACCOUNT
+  - matches touching a placeholder
+  - matches that start or end mid-word
+  
+  Unparseable replies give no spans and are counted.
+- **Providers:**
+
+  | `CALLSEARCH_LLM_PROVIDER` | Model setting | Key / host |
+  |---|---|---|
+  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`; never hardcode or commit it |
+  | `ollama` (local) | `CALLSEARCH_OLLAMA_MODEL` | host from `OLLAMA_HOST` |
+
+  Both run at temperature 0.
+- **Cache:** replies are cached in `.cache/llm/` (gitignored), keyed by provider + model + prompt version + masked text. Re-running an eval is free and reproducible.
+- **Cost:**
+  - `--dry-run` prints requests and estimated tokens without calling the model.
+  - `--max-requests N` aborts before any request if more would be needed.
+  - A real run prints requests made, cache hits, parse failures, tokens and estimated cost. Prices come from `CALLSEARCH_LLM_PRICE_IN` / `_OUT` (USD per million tokens), defaulting to 1 / 5.
+- **Privacy:** only text already masked by regex + ner is sent, and all of it is synthetic. In a real deployment that text would still leave the machine for a hosted API, and anything the first two layers missed would go with it. That is why the provider interface also supports a local Ollama model.
+
 ## Data and results layout
 
 | Path | Contents | In git |
@@ -95,6 +140,7 @@ Two Presidio detectors are registered:
 | `data/redacted/` | Redacted transcripts only. The index builder reads from here. | Yes |
 | `data/index/` | Vector index built from redacted text | Yes |
 | `models/` | Trained models | No (gitignored) |
+| `.cache/llm/` | Cached LLM replies | No (gitignored) |
 | `results/` | Eval and training metrics only (counts, rates, type names), never transcript text. A test enforces this. | Yes |
 | `results/v1/` | Archived v1 baseline. Its dev set was carved out of train and shared templates and phrasing with it (dev F1 1.000 vs test 0.884), so it is not comparable to current results. | Yes |
 
