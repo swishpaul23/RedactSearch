@@ -59,6 +59,34 @@ python scripts/show_errors.py --detector pipeline --split dev --type PERSON --n 
 
 `show_errors.py` prints false positives and negatives with context. It defaults to dev and refuses `--split test` unless `--allow-test` is passed.
 
+## Presidio baseline (off-the-shelf comparison)
+
+```powershell
+python -m callsearch.eval.redaction_eval --detector presidio --split dev
+python -m callsearch.redact.presidio_baseline --split dev   # distractor hits by any Presidio entity
+python scripts/compare_results.py --split dev                # -> results/comparison_dev.md
+```
+
+`presidio` runs `presidio-analyzer` 2.2.364 with its **default configuration**: `AnalyzerEngine()` with default recognizers and its default spaCy model, **en_core_web_lg 3.8.0** (Presidio downloads it on first use). There are no custom recognizers and no threshold tuning. Where mapped spans overlap, the higher Presidio score wins, matching how Presidio's anonymizer resolves conflicts.
+
+Entity mapping (Presidio -> ours):
+
+| Presidio entity | Ours | Notes |
+|---|---|---|
+| `PERSON` | PERSON | spaCy NER via en_core_web_lg |
+| `EMAIL_ADDRESS` | EMAIL | |
+| `PHONE_NUMBER` | PHONE | |
+| `CREDIT_CARD` | CARD | regex + Luhn |
+| `CA_SIN` | SIN | Presidio has a built-in Canadian SIN recognizer (`CaSinRecognizer`, regex + Luhn), but it is **disabled in the default config**. Under the default baseline it never fires, so Presidio's SIN recall is 0. |
+| `US_BANK_NUMBER` | ACCOUNT | Presidio's only built-in bank-account recognizer (8–17 digits, boosted by words like "account"). It is US-labelled but format-generic, and enabled by default. |
+
+Two Presidio detectors are registered:
+
+- **`presidio`**: Presidio's default configuration, exactly as shipped.
+- **`presidio_casin`**: the same configuration with one change. The built-in `CaSinRecognizer` is set to `enabled: true` in Presidio's own `default_recognizers.yaml`. This is config only, with no custom recognizer. It is a fairness check, since the default config can't detect Canadian SINs at all.
+
+**Unmapped** (ignored in scoring): `US_SSN` (a US ID with a different 3-2-4 format; mapping it to SIN would inflate the score), `LOCATION`, `DATE_TIME`, `NRP`, `URL`, `IP_ADDRESS`, `IBAN_CODE`, `CRYPTO`, `MAC_ADDRESS`, `MEDICAL_LICENSE`, `UK_NHS`, `US_ITIN`, `US_DRIVER_LICENSE`, `US_PASSPORT`. The `presidio_baseline` CLI still counts every entity, mapped or not, that lands on a distractor, and lists labels touched only by an unmapped entity. Results go to `results/presidio_extras_<split>.json`.
+
 ## Data and results layout
 
 | Path | Contents | In git |

@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
     "faker==40.43.0",
     "spacy==3.8.16",
+    "presidio-analyzer==2.2.364",
 ]
 
 [tool.setuptools.packages.find]

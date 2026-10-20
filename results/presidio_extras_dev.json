@@ -1,0 +1,31 @@
+{
+  "split": "dev",
+  "detector": "presidio",
+  "model": "en_core_web_lg-3.8.0",
+  "distractors_flagged": {
+    "AMOUNT": {
+      "flagged": 0,
+      "total": 32
+    },
+    "DATE": {
+      "flagged": 18,
+      "total": 20
+    },
+    "ORDER_NUMBER": {
+      "flagged": 3,
+      "total": 6
+    },
+    "REFERENCE": {
+      "flagged": 7,
+      "total": 19
+    }
+  },
+  "distractor_hits_by_entity": {
+    "DATE_TIME": 24,
+    "US_BANK_NUMBER": 8,
+    "US_DRIVER_LICENSE": 8,
+    "US_PASSPORT": 7,
+    "US_SSN": 7
+  },
+  "labels_touched_only_by_unmapped": {}
+}

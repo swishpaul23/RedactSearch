@@ -1,0 +1,39 @@
+{
+  "split": "test",
+  "detector": "presidio",
+  "model": "en_core_web_lg-3.8.0",
+  "distractors_flagged": {
+    "AMOUNT": {
+      "flagged": 1,
+      "total": 53
+    },
+    "DATE": {
+      "flagged": 42,
+      "total": 45
+    },
+    "ORDER_NUMBER": {
+      "flagged": 20,
+      "total": 20
+    },
+    "REFERENCE": {
+      "flagged": 15,
+      "total": 40
+    },
+    "TIME": {
+      "flagged": 26,
+      "total": 27
+    }
+  },
+  "distractor_hits_by_entity": {
+    "DATE_TIME": 86,
+    "PHONE_NUMBER": 1,
+    "US_BANK_NUMBER": 23,
+    "US_DRIVER_LICENSE": 23,
+    "US_PASSPORT": 14,
+    "US_SSN": 14
+  },
+  "labels_touched_only_by_unmapped": {
+    "PERSON:DATE_TIME": 3,
+    "PERSON:LOCATION": 3
+  }
+}
