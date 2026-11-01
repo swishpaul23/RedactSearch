@@ -24,6 +24,7 @@ import os
 import re
 import threading
 import time
+import urllib.error
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -86,7 +87,7 @@ Reply with JSON only, no other text:
 Copy "text" exactly as it appears in the turn, same spelling and case.
 If no names remain, reply exactly {"spans": []}."""
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v2"  # used by providers that set no default_prompt of their own
 SYSTEM_PROMPT = PROMPTS[PROMPT_VERSION]
 
 
@@ -119,6 +120,7 @@ class AnthropicProvider:
 
     name = "anthropic"
     default_workers = 8
+    default_prompt = "v2"
 
     def __init__(self, model: str | None = None, max_tokens: int = 512, client=None):
         self.model = model or os.environ.get("CALLSEARCH_LLM_MODEL", "claude-haiku-5-5")
@@ -152,12 +154,16 @@ class OllamaProvider:
 
     name = "ollama"
     default_workers = 1  # a local model serves one request at a time; more threads only queue
+    default_prompt = "v1"  # on qwen2:7b, v2 measured worse on dev (PERSON precision 0.640 vs 0.839)
     price_in = price_out = 0.0
 
-    def __init__(self, model: str | None = None, host: str | None = None, timeout: float = 120.0):
+    def __init__(self, model: str | None = None, host: str | None = None, timeout: float = 120.0,
+                 max_tokens: int = 512, attempts: int = 3):
         self.model = model or os.environ.get("CALLSEARCH_OLLAMA_MODEL", "")
         self.host = (host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
         self.timeout = timeout
+        self.max_tokens = max_tokens  # caps runaway generations, which otherwise hang until timeout
+        self.attempts = attempts
         self.usage = _Usage()
 
     def _post(self, payload: dict) -> dict:
@@ -166,11 +172,22 @@ class OllamaProvider:
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
+    def _post_with_retry(self, payload: dict) -> dict:
+        for attempt in range(1, self.attempts + 1):
+            try:
+                return self._post(payload)
+            except (TimeoutError, urllib.error.URLError, ConnectionError) as e:
+                if attempt == self.attempts:
+                    raise
+                print(f"  ollama request failed ({type(e).__name__}), retry {attempt}/{self.attempts - 1}", flush=True)
+                time.sleep(2 * attempt)
+
     def complete(self, system: str, user: str) -> str:
         if not self.model:
             raise RuntimeError("set CALLSEARCH_OLLAMA_MODEL to a pulled model (see `ollama list`)")
-        data = self._post({
-            "model": self.model, "stream": False, "format": "json", "options": {"temperature": 0},
+        data = self._post_with_retry({
+            "model": self.model, "stream": False, "format": "json",
+            "options": {"temperature": 0, "num_predict": self.max_tokens},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
         self.usage.add(data.get("prompt_eval_count", 0), data.get("eval_count", 0))
         return data["message"]["content"]
@@ -301,9 +318,9 @@ class LLMDetector:
 
     def __init__(self, base: Detector | None = None, provider: LLMProvider | None = None,
                  name: str = "llm", cache_dir: Path | None = CACHE_DIR, workers: int | None = None,
-                 max_requests: int | None = None, prompt_version: str = PROMPT_VERSION,
+                 max_requests: int | None = None, prompt_version: str | None = None,
                  keep_types: list[str] | None = None, progress_every: int = 100):
-        if prompt_version not in PROMPTS:
+        if prompt_version is not None and prompt_version not in PROMPTS:
             raise KeyError(f"unknown prompt version {prompt_version!r}; known: {sorted(PROMPTS)}")
         self.name = name
         self.base = base
@@ -311,8 +328,7 @@ class LLMDetector:
         self.cache_dir = cache_dir
         self._workers = workers  # None -> the provider's default (ollama 1, anthropic 8)
         self.max_requests = max_requests
-        self.prompt_version = prompt_version
-        self.system_prompt = PROMPTS[prompt_version]
+        self._prompt_version = prompt_version  # None -> the provider's default_prompt
         self.keep_types = KEEP_TYPES if keep_types is None else keep_types
         self.progress_every = progress_every
         # requests, cache_hits, empty_answers, parse_failures, skipped_empty, discards...
@@ -334,6 +350,14 @@ class LLMDetector:
     @workers.setter
     def workers(self, n: int | None) -> None:
         self._workers = n
+
+    @property
+    def prompt_version(self) -> str:
+        return self._prompt_version or getattr(self.provider, "default_prompt", PROMPT_VERSION)
+
+    @property
+    def system_prompt(self) -> str:
+        return PROMPTS[self.prompt_version]
 
     def provenance(self) -> dict:
         """Which model and prompt produced these results. Saved with every eval."""
@@ -533,7 +557,7 @@ def main() -> None:
     p.add_argument("--data", type=Path, default=Path("data/raw/calls.jsonl"))
     p.add_argument("--max-requests", type=int, default=0,
                    help="API calls allowed (default 0: cache only; run the eval first)")
-    p.add_argument("--llm-prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS))
+    p.add_argument("--llm-prompt", choices=sorted(PROMPTS), help="default: the provider's default prompt")
     p.add_argument("--show-false", type=int, default=0, metavar="N",
                    help="also print N false PERSON additions with context (synthetic text; not saved)")
     args = p.parse_args()

@@ -162,7 +162,7 @@ def main() -> None:
     p.add_argument("--dry-run", action="store_true", help="LLM detectors: print request/token estimate, no API calls")
     p.add_argument("--max-requests", type=int, help="LLM detectors: abort if more API requests would be needed")
     p.add_argument("--workers", type=int, help="LLM detectors: parallel requests (default: ollama 1, anthropic 8)")
-    p.add_argument("--llm-prompt", help="LLM detectors: prompt version (default: latest)")
+    p.add_argument("--llm-prompt", help="LLM detectors: prompt version (default: per provider, ollama v1, anthropic v2)")
     args = p.parse_args()
 
     calls = [c for c in read_jsonl(args.data) if args.split == "all" or c["split"] == args.split]

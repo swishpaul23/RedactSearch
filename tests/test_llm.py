@@ -163,6 +163,16 @@ def test_provenance_and_worker_defaults():
     assert LLMDetector(provider=OllamaProvider(model="m"), workers=3).workers == 3
 
 
+def test_prompt_default_per_provider_and_override():
+    from callsearch.redact.llm import PROMPTS, AnthropicProvider
+
+    ollama = LLMDetector(provider=OllamaProvider(model="m"))
+    assert ollama.prompt_version == "v1" and ollama.system_prompt == PROMPTS["v1"]
+    assert LLMDetector(provider=AnthropicProvider(client=object())).prompt_version == "v2"
+    assert LLMDetector(provider=OllamaProvider(model="m"), prompt_version="v2").prompt_version == "v2"
+    assert get_detector("pipeline_llm")._prompt_version is None  # resolved lazily from the provider
+
+
 def test_progress_printed_every_n_requests(tmp_path, capsys):
     d = det([], reply(), tmp_path, progress_every=2)
     d.prefetch([f"hi {n}" for n in "ABCDE"])
@@ -250,6 +260,27 @@ def test_ollama_provider_with_mocked_http(monkeypatch):
     assert sent["model"] == "qwen2:7b" and sent["options"]["temperature"] == 0 and sent["stream"] is False
     assert sent["messages"] == [{"role": "system", "content": "SYS"}, {"role": "user", "content": "hi Ann"}]
     assert (p.usage.input_tokens, p.usage.output_tokens) == (50, 9)
+
+
+def test_ollama_retries_timeouts_then_gives_up(monkeypatch):
+    import callsearch.redact.llm as llm_mod
+
+    monkeypatch.setattr(llm_mod.time, "sleep", lambda s: None)
+    attempts = []
+
+    def flaky(self, payload):
+        attempts.append(payload)
+        if len(attempts) < 3:
+            raise TimeoutError("timed out")
+        return {"message": {"content": "{}"}}
+
+    monkeypatch.setattr(OllamaProvider, "_post", flaky)
+    assert OllamaProvider(model="m").complete("s", "u") == "{}"
+    assert len(attempts) == 3 and attempts[0]["options"]["num_predict"] == 512
+
+    monkeypatch.setattr(OllamaProvider, "_post", lambda self, p: (_ for _ in ()).throw(TimeoutError("x")))
+    with pytest.raises(TimeoutError):
+        OllamaProvider(model="m", attempts=2).complete("s", "u")
 
 
 def test_ollama_requires_model(monkeypatch):

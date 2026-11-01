@@ -1,17 +1,17 @@
 {
   "split": "dev",
   "detector": "pipeline_llm",
-  "added": 30,
-  "correct": 11,
+  "added": 89,
+  "correct": 13,
   "overlaps_label": 3,
   "distractor": 0,
-  "false": 16,
+  "false": 73,
   "by_type": {
     "PERSON": {
-      "correct": 11,
+      "correct": 13,
       "overlaps_label": 3,
       "distractor": 0,
-      "false": 16
+      "false": 73
     },
     "EMAIL": {
       "correct": 0,
@@ -46,7 +46,7 @@
   },
   "provider": "ollama",
   "model": "qwen2:7b",
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "requests": 0,
   "cache_hits": 774,
   "parse_failures": 0
