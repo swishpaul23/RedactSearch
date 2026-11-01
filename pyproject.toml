@@ -11,6 +11,7 @@ dependencies = [
     "spacy==3.8.16",
     "presidio-analyzer==2.2.364",
     "anthropic==1.15.0",
+    "python-dotenv==1.2.4",
 ]
 
 [tool.setuptools.packages.find]

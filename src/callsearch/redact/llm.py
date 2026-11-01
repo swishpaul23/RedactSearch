@@ -87,6 +87,41 @@ Reply with JSON only, no other text:
 Copy "text" exactly as it appears in the turn, same spelling and case.
 If no names remain, reply exactly {"spans": []}."""
 
+PROMPTS["v3"] = """You find people's names left in a call-centre transcript turn.
+
+Placeholders: tokens like [PERSON], [CARD], [SIN], [EMAIL], [PHONE], [ACCOUNT] mark personal data
+that was ALREADY found and masked. Treat them as done.
+- Never return a placeholder, or any text containing one.
+- Never return the words next to a placeholder (greetings, titles, phrases such as "spouse's name",
+  "applicant's name", "this is", "speaking") unless those words are themselves a person's name.
+
+Report only one type:
+- PERSON: a real individual's name (first name, last name, or full name) still visible as plain text,
+  including the agent's name.
+
+NOT a person. Never report these:
+- Business, restaurant, hotel, shop, bank and product names, even if they contain a person's name.
+- Street names, place names, cities, landmarks, train stations.
+- Numbers of any kind, email addresses, amounts, dates, times, ordinary words.
+
+Reply with JSON only, no other text:
+{"spans": [{"text": "<exact name as it appears>", "type": "PERSON"}]}
+Copy "text" exactly as it appears in the turn, same spelling and case.
+If no names remain, reply exactly {"spans": []}.
+
+Examples:
+Turn: Thanks [PERSON]. My brother Osvaldo might call about it too.
+Reply: {"spans": [{"text": "Osvaldo", "type": "PERSON"}]}
+
+Turn: hi this is [PERSON] at [PHONE], please send the letter to marisol quintero
+Reply: {"spans": [{"text": "marisol quintero", "type": "PERSON"}]}
+
+Turn: Put it under my partner's name, [PERSON]. The card ends in [CARD].
+Reply: {"spans": []}
+
+Turn: Welcome to the Riverside help line. I booked you at the Lotus Garden on Elm Street.
+Reply: {"spans": []}"""
+
 PROMPT_VERSION = "v2"  # used by providers that set no default_prompt of their own
 SYSTEM_PROMPT = PROMPTS[PROMPT_VERSION]
 
@@ -114,16 +149,26 @@ class _Usage:
             self.output_tokens += out
 
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
 class AnthropicProvider:
-    """Claude via the Anthropic SDK. The key is read from ANTHROPIC_API_KEY by the SDK;
-    it is never logged or stored here."""
+    """Claude via the Anthropic SDK.
+
+    ANTHROPIC_API_KEY and CALLSEARCH_LLM_MODEL come from the environment, or else from the
+    repo-root .env (gitignored). The .env is read only here, only those two names, and without
+    touching os.environ. The key goes straight to the SDK client: never stored on this object,
+    printed or logged.
+    """
 
     name = "anthropic"
     default_workers = 8
     default_prompt = "v2"
 
-    def __init__(self, model: str | None = None, max_tokens: int = 512, client=None):
-        self.model = model or os.environ.get("CALLSEARCH_LLM_MODEL", "claude-haiku-5-5")
+    def __init__(self, model: str | None = None, max_tokens: int = 512, client=None,
+                 env_file: Path | None = None):
+        self.env_file = env_file or REPO_ROOT / ".env"
+        self.model = model or self._setting("CALLSEARCH_LLM_MODEL") or "claude-haiku-5-5"
         self.max_tokens = max_tokens
         self.usage = _Usage()
         self._client = client
@@ -131,14 +176,29 @@ class AnthropicProvider:
         self.price_in = float(os.environ.get("CALLSEARCH_LLM_PRICE_IN", "1.0"))
         self.price_out = float(os.environ.get("CALLSEARCH_LLM_PRICE_OUT", "5.0"))
 
+    def _setting(self, name: str) -> str | None:
+        """Environment first, then .env. Only ANTHROPIC_API_KEY / CALLSEARCH_LLM_MODEL are read."""
+        assert name in ("ANTHROPIC_API_KEY", "CALLSEARCH_LLM_MODEL")
+        if os.environ.get(name):
+            return os.environ[name]
+        if self.env_file.exists():
+            from dotenv import dotenv_values
+
+            return dotenv_values(self.env_file).get(name) or None
+        return None
+
+    def has_key(self) -> bool:
+        return bool(self._setting("ANTHROPIC_API_KEY"))
+
     @property
     def client(self):
         if self._client is None:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
-                raise RuntimeError("ANTHROPIC_API_KEY is not set (set it in the environment; never commit it)")
+            key = self._setting("ANTHROPIC_API_KEY")
+            if not key:
+                raise RuntimeError("ANTHROPIC_API_KEY is not set (environment or repo-root .env; never commit it)")
             import anthropic
 
-            self._client = anthropic.Anthropic(max_retries=5)
+            self._client = anthropic.Anthropic(api_key=key, max_retries=5)
         return self._client
 
     def complete(self, system: str, user: str) -> str:

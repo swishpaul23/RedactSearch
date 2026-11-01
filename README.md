@@ -95,18 +95,27 @@ python -m callsearch.eval.redaction_eval --detector pipeline_llm --split dev --m
 python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false LLM additions (from cache) -> results/llm_additions_dev.json
 ```
 
-Current dev result, from **`ollama:qwen2:7b`, prompt v1, PERSON-only post-filter**, re-scored from the cache:
+**PERSON ablation on dev.** Every LLM row names the model and prompt that produced it. All rows include the PERSON-only post-filter.
 
-| | PERSON precision | recall | F1 | leak |
-|---|---:|---:|---:|---:|
-| pipeline | 0.933 | 0.909 | 0.921 | 9.1% |
-| pipeline_llm | 0.839 | 0.981 | 0.904 | 1.9% |
+| detector | model | prompt | PERSON precision | recall | leak |
+|---|---|---|---:|---:|---:|
+| pipeline (regex + ner) | none | none | 0.933 | 0.909 | 9.1% |
+| pipeline_llm | `ollama:qwen2:7b` | v1 | 0.839 | 0.981 | 1.9% |
+| pipeline_llm | `ollama:qwen2:7b` | v2 | 0.640 | 0.994 | 0.6% |
 
-Structured types and distractor false positives are identical to `pipeline` (100% and 0). The Claude provider has not been evaluated yet.
+- **Structured types and distractors:** in every row they are identical to `pipeline` (100% and 0 false positives).
+- **v2 vs v1:** v2 finds 2 more names but adds 57 more false positives, mostly places, restaurants and words next to placeholders. That is why Ollama defaults to v1.
+- **Not evaluated yet:** v3 and the Claude provider.
+- **Results files:** v1 results are archived in `results/llm_prompt_v1/`.
 
 - **`pipeline_llm`**: regex + ner first. The LLM then sees each turn with those spans already masked (`[CARD]`, `[PERSON]`, ...) and lists any names still visible. Its spans are only **added**; base spans are never removed. **`llm`** is the LLM alone, for ablation (it sees the turn unmasked).
 - **PERSON only.** Regex is exact on the structured types. On dev, every EMAIL/PHONE/CARD/SIN/ACCOUNT span the LLM added was a false positive, including all 23 distractor hits. So only PERSON spans are kept, through a post-filter that applies to every prompt version.
-- **Prompt versions:** `v1` asks for all six types; `v2` asks for PERSON only. Each provider has its own default: Ollama uses `v1` (v2 measured worse on `qwen2:7b`) and Anthropic uses `v2`. Pick another with `--llm-prompt`. All versions stay in `PROMPTS`, and the version is part of the cache key.
+- **Prompt versions:**
+  - `v1` asks for all six types.
+  - `v2` asks for PERSON only.
+  - `v3` asks for PERSON only. It restores v1's rules that businesses and places are not people, says placeholders mark data already masked (never return one or the words beside it), and gives 4 short examples with invented names and places, none taken from the eval data.
+
+  Each provider has its own default: Ollama uses `v1` (v2 measured worse on `qwen2:7b`) and Anthropic uses `v2`. Pick another with `--llm-prompt`. All versions stay in `PROMPTS`, and the version is part of the cache key.
 - **Parse accounting:** `{}` and `{"spans": []}` count as valid empty answers. Only unparseable replies count as parse failures.
 - **Concurrency:** Ollama uses 1 worker, since a local model serves one request at a time, and Anthropic uses 8. Override with `--workers N`. Progress prints every 100 requests.
 - **Provenance:** LLM results must name the model that produced them. Every LLM eval JSON stores `"llm": {"provider", "model", "prompt_version"}`, and comparison tables label the detector, e.g. `pipeline_llm [ollama:qwen2:7b prompt v1]`. Files saved before this was recorded show `[model unknown]`.
@@ -121,7 +130,7 @@ Structured types and distractor false positives are identical to `pipeline` (100
 
   | `CALLSEARCH_LLM_PROVIDER` | Model setting | Key / host |
   |---|---|---|
-  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`; never hardcode or commit it |
+  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`, in the environment or the repo-root `.env` (gitignored). Only the provider reads `.env`, and only that key and the model name. The key is never printed, logged or committed. |
   | `ollama` (local) | `CALLSEARCH_OLLAMA_MODEL` | host from `OLLAMA_HOST` |
 
   Both run at temperature 0.

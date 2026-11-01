@@ -1,6 +1,8 @@
 """Tests for the LLM layer with mocked providers. No network."""
 
 import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -163,6 +165,21 @@ def test_provenance_and_worker_defaults():
     assert LLMDetector(provider=OllamaProvider(model="m"), workers=3).workers == 3
 
 
+def test_prompt_v3_rules_and_examples():
+    from callsearch.redact.llm import PROMPTS
+
+    v3 = PROMPTS["v3"]
+    for must in ("restaurant", "hotel", "Street names", "ALREADY found", "Never return a placeholder",
+                 "spouse's name", '{"spans": []}'):
+        assert must in v3, must
+    assert v3.count("Turn:") == 4 and v3.count('Reply: {"spans": []}') == 2
+    # Each example's non-empty answer is a verbatim substring of its turn (the rule we enforce).
+    for turn, reply_ in re.findall(r"Turn: (.*)\nReply: (.*)", v3):
+        for item in json.loads(reply_)["spans"]:
+            assert item["text"] in turn and item["type"] == "PERSON"
+    assert LLMDetector(provider=FakeProvider(""), prompt_version="v3").system_prompt == v3
+
+
 def test_prompt_default_per_provider_and_override():
     from callsearch.redact.llm import PROMPTS, AnthropicProvider
 
@@ -309,12 +326,59 @@ def test_anthropic_provider_with_mocked_client(monkeypatch):
     assert (p.usage.input_tokens, p.usage.output_tokens) == (10, 3)
 
 
-def test_anthropic_missing_key_is_clear(monkeypatch):
+def test_anthropic_missing_key_is_clear(monkeypatch, tmp_path):
     from callsearch.redact.llm import AnthropicProvider
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    p = AnthropicProvider(env_file=tmp_path / "missing.env")
+    assert not p.has_key()
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
-        AnthropicProvider().complete("s", "u")
+        p.complete("s", "u")
+
+
+FAKE_KEY = "sk-ant-test-not-a-real-key-0123456789"
+
+
+def test_anthropic_reads_key_and_model_from_dotenv(monkeypatch, tmp_path, capsys):
+    import os
+
+    import anthropic
+
+    from callsearch.redact.llm import AnthropicProvider
+
+    for v in ("ANTHROPIC_API_KEY", "CALLSEARCH_LLM_MODEL"):
+        monkeypatch.delenv(v, raising=False)
+    env = tmp_path / ".env"
+    env.write_text(f"ANTHROPIC_API_KEY={FAKE_KEY}\nCALLSEARCH_LLM_MODEL=claude-test-model\nOTHER=ignored\n",
+                   encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: seen.update(kw) or object())
+
+    p = AnthropicProvider(env_file=env)
+    assert p.has_key() and p.model == "claude-test-model"
+    p.client
+    assert seen["api_key"] == FAKE_KEY
+    # Not leaked into the process environment, the provider's attributes, or any output.
+    assert "ANTHROPIC_API_KEY" not in os.environ and "OTHER" not in os.environ
+    assert FAKE_KEY not in repr(vars(p)) and FAKE_KEY not in "".join(capsys.readouterr())
+
+
+def test_anthropic_environment_wins_over_dotenv(monkeypatch, tmp_path):
+    from callsearch.redact.llm import AnthropicProvider
+
+    env = tmp_path / ".env"
+    env.write_text("CALLSEARCH_LLM_MODEL=from-dotenv\n", encoding="utf-8")
+    monkeypatch.setenv("CALLSEARCH_LLM_MODEL", "from-env")
+    assert AnthropicProvider(env_file=env).model == "from-env"
+
+
+def test_dotenv_read_only_inside_anthropic_provider():
+    import callsearch.redact.llm as llm_mod
+
+    src = Path(llm_mod.__file__).read_text(encoding="utf-8")
+    assert src.count("dotenv") == src[src.index("class AnthropicProvider"):src.index("class OllamaProvider")].count(
+        "dotenv")
+    assert "load_dotenv" not in src  # never loads the whole file into os.environ
 
 
 def test_registry_is_lazy():
