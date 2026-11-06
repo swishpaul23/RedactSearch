@@ -60,8 +60,11 @@ def test_load_rejects_duplicate_ids(tmp_path):
 
 def test_retrieval_outcome_ranks():
     hits = [hit("call_0002:1"), hit("call_0001:0"), hit("call_0001:1")]
-    assert retrieval_outcome(aq(), hits) == {"rank": 2, "turn_ranks": [3]}
-    assert retrieval_outcome(aq(call_id="call_0003", turn_ids=[0]), hits) == {"rank": None, "turn_ranks": []}
+    assert retrieval_outcome(aq(), hits) == {"rank": 2, "turn_ranks": [3], "turn_shown": True}
+    assert retrieval_outcome(aq(), hits, k=2) == {"rank": 2, "turn_ranks": [3], "turn_shown": False}
+    assert retrieval_outcome(aq(), hits, k=2, neighbors=1)["turn_shown"] is True  # call_0001:0 is next to turn 1
+    assert retrieval_outcome(aq(call_id="call_0003", turn_ids=[0]), hits) == {
+        "rank": None, "turn_ranks": [], "turn_shown": False}
 
 
 def answer(text, cited=(), rejected=None):
@@ -109,7 +112,7 @@ def test_run_end_to_end():
     metrics, rows = run(qs, FakeIndex(), FakeAnswerer(), k=5, mode="hybrid")
     assert metrics["recall@1"] == 1.0 and metrics["citation_accuracy"] == 1.0 and metrics["abstention_rate"] == 1.0
     assert [r["id"] for r in rows] == ["a1", "u1"]
-    assert all(set(r) <= {"id", "answerable", "rank", "turn_ranks", "found", "rejected", "citation_ok", "term_match",
+    assert all(set(r) <= {"id", "answerable", "rank", "turn_ranks", "turn_shown", "found", "rejected", "citation_ok", "term_match",
                           "abstained"} for r in rows)
 
 

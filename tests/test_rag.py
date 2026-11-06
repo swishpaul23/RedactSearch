@@ -285,3 +285,16 @@ def test_search_modes(built):
     assert index.search("zzzz", k=3, mode="bm25") == []
     with pytest.raises(ValueError, match="unknown search mode"):
         index.search("refund", mode="magic")
+
+
+def test_with_neighbors_returns_ordered_windows(built):
+    from callsearch.rag.store import CallIndex
+
+    tmp_path, _ = built
+    index = CallIndex(tmp_path / "idx", embedder=FakeEmbedder())
+    hit = index.search("refund subscription", k=1)[0]  # call_9001:1, the last turn of its call
+    assert [w.chunk_id for w in index.with_neighbors([hit], 1)[0]] == ["call_9001:0", "call_9001:1"]
+    assert [w.chunk_id for w in index.with_neighbors([hit], 0)[0]] == ["call_9001:1"]
+    first = index.turns(["call_9002:0"])["call_9002:0"]
+    assert [w.chunk_id for w in index.with_neighbors([first], 2)[0]] == ["call_9002:0", "call_9002:1"]
+    assert index.turns([]) == {} and index.turns(["call_9999:0"]) == {}

@@ -128,6 +128,25 @@ class CallIndex:
         allowed = None if split is None else {i for i, m in enumerate(metas) if m["split"] == split}
         return [self._hit(ids[i], docs[i], metas[i], s) for i, s in bm25.top(query, n, allowed)]
 
+    def turns(self, ids: list[str]) -> dict[str, Hit]:
+        """Stored turns by chunk id (missing ids are skipped), as Hits with score 0."""
+        if not ids:
+            return {}
+        got = self._collection().get(ids=list(dict.fromkeys(ids)), include=["documents", "metadatas"])
+        return {cid: self._hit(cid, doc, m, 0.0) for cid, doc, m in zip(got["ids"], got["documents"], got["metadatas"])}
+
+    def with_neighbors(self, hits: list[Hit], n: int) -> list[list[Hit]]:
+        """For each hit, the stored turns from n before to n after it in the same call, in order."""
+        if n <= 0:
+            return [[h] for h in hits]
+        want = [f"{h.call_id}:{h.turn_id + d}" for h in hits for d in range(-n, n + 1) if d and h.turn_id + d >= 0]
+        found = self.turns(want)
+        out = []
+        for h in hits:
+            window = [found.get(f"{h.call_id}:{h.turn_id + d}") if d else h for d in range(-n, n + 1)]
+            out.append([w for w in window if w is not None])
+        return out
+
     def search(self, query: str, k: int = 5, split: str | None = None, mode: str = DEFAULT_MODE) -> list[Hit]:
         if mode == "dense":
             return self._dense(query, k, split)

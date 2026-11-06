@@ -240,7 +240,7 @@ def test_rag_eval_is_metrics_only(path):
     assert res["split"] in {"dev", "test"} and type(res["k"]) is int
     assert set(res["index"]) == {"embed_model", "context_turns", "detector", "n_chunks"}
     assert res.get("retrieval", "dense") in {"dense", "bm25", "hybrid"}  # absent in files saved before it existed
-    assert res["llm"] is None or set(res["llm"]) - {"retrieval"} == {"provider", "model", "prompt_version", "k"}
+    assert res["llm"] is None or set(res["llm"]) - {"retrieval", "neighbors"} == {"provider", "model", "prompt_version", "k"}
     skip = {"split", "index", "llm", "questions", "retrieval"}
     assert all(type(v) in (int, float) for k, v in res.items() if k not in skip)
     for row in res["questions"]:

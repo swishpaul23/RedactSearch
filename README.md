@@ -184,6 +184,12 @@ python -m callsearch.rag.store "customer wants a refund" -k 5
 - **Chunks:** one chunk per speaker turn, with id `<call_id>:<turn_id>` and the speaker, start time, split and source as metadata. The embedded text includes the previous turn (`--context-turns 1`), so a short reply like "yes, that one" keeps what it answers. The stored and displayed text is the turn alone.
 - **Embeddings:** sentence-transformers, `BAAI/bge-small-en-v1.5` by default (`--model minilm` for `all-MiniLM-L6-v2`). Vectors are normalised, and queries get BGE's search prefix. The collection records the model, so queries always use the model that built the index.
 - **Store:** Chroma, persistent in `data/index/chroma/`, with cosine distance. Rebuilding replaces the collection.
+- **Search modes** (`--mode` on `callsearch.rag.store`, `callsearch.rag.answer` and `rag_eval`):
+  - `dense`: embeddings only.
+  - `bm25`: keyword scoring (Okapi BM25, k1 1.5, b 0.75), built in memory from the stored documents. The tokenizer keeps times, prices and ids whole (`05:00`, `18.88`, `tr7423`) and drops placeholders, so redacted data never becomes a match key.
+  - `hybrid`: the top 50 of each list fused with reciprocal rank fusion (`1 / (60 + rank)`, summed over both lists).
+
+  Dense embeddings blur exact tokens such as train ids, times and venue names, and BM25 matches only those tokens, so the two miss different questions.
 - **Index guard** (`callsearch.rag.guard`):
   1. A pattern scan of every stored document with the regex layer. On a regex-based redactor this is a check against bugs and hand edits, not an independent detector.
   2. A planted-value scan: every labeled value from `data/raw/` is looked up verbatim in the stored text of its own turn. This is the same leak test `redaction_eval` uses, applied to what is actually in the index. It is evaluation-only and the one place outside the eval scripts that reads raw data.
@@ -200,7 +206,8 @@ python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--sp
 1. The top `k` chunks come from the index. They are already redacted, and nothing else ever goes into the prompt.
 2. The model sees them as numbered excerpts (call id, turn, speaker, time, text). It must answer from them only, cite the excerpt numbers it used, treat placeholders as removed data, and reply `NOT_FOUND` when the excerpts do not answer the question.
 3. **Server check:** the reply must parse as JSON, cite at least one excerpt, and cite only excerpts that were retrieved. A reply that fails any of these is discarded, returned as `NOT_FOUND`, and the reason is recorded in `rejected`. A model that says `NOT_FOUND` is a valid outcome, not a rejection.
-4. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
+4. With `--neighbors n`, each excerpt also shows the `n` turns before and after the matched turn, with the matched turn marked. An answer often sits in the reply to the turn that matched. For example, the customer's turn names the restaurant and the agent's next turn gives the price. Citations still point at matched turns.
+5. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
 
 The provider is the one the LLM redaction layer uses (`CALLSEARCH_LLM_PROVIDER`), so Claude and a local Ollama model are interchangeable. Replies are cached in `.cache/answers/`, keyed by provider, model, prompt version, question and retrieved chunks, so eval reruns are free. Prompts are versioned in `PROMPTS` like the redaction prompts.
 
@@ -212,7 +219,7 @@ python -m callsearch.eval.rag_eval --split dev                    # + cited answ
 python -m callsearch.eval.rag_eval --split test                   # reported numbers, run once
 ```
 
-**Question sets** (`data/questions/rag_<split>.jsonl`, hand-written, in git): dev has 15 answerable + 5 unanswerable questions for tuning, and test has 44 + 10 for reported numbers. Each answerable question names its gold call and turns, a list of `evidence` phrases, and `answer_terms` a correct answer should contain. Unanswerable questions list `absent` phrases that no stored turn contains.
+**Question sets** (`data/questions/rag_<split>.jsonl`, hand-written, in git): dev has 35 answerable + 8 unanswerable questions for tuning, and test has 44 + 10 for reported numbers. The first 15 + 5 dev questions were run before the set was extended and are kept unchanged. Two of them (`dev_a06`, `dev_a13`) put the call's distinguishing detail only in the answer, not in the question, so no retriever can be expected to find them. The later questions carry that detail in the question itself. Each answerable question names its gold call and turns, a list of `evidence` phrases, and `answer_terms` a correct answer should contain. Unanswerable questions list `absent` phrases that no stored turn contains.
 
 **Validation before scoring:** the eval checks every question against the text actually stored in the index. The evidence must be in the gold call, the gold turns must exist, and no other call may contain all the evidence phrases. Without this check, a question about a template call would have dozens of right answers, because the 5 templates repeat their phrasing word for word across calls. Unanswerable questions must have no turn containing their `absent` phrases. If any question fails, the run stops and lists it. Answerable questions are drawn from MultiWOZ calls only, since template calls differ almost only in their (redacted) personal data.
 
@@ -222,6 +229,7 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 |---|---|
 | recall@1/3/5/10 | a chunk from the gold call is in the top n |
 | turn_hit@k | a gold turn itself is in the top k |
+| turn_shown@k | a gold turn is in the top k or within `--neighbors` turns of a top-k hit, so the model sees the answer turn |
 | mrr@10 | mean of 1 / rank of the gold call's first chunk |
 | answer_found | answerable questions that got an answer (not NOT_FOUND) |
 | citation_accuracy | the answer cites a chunk from the gold call |

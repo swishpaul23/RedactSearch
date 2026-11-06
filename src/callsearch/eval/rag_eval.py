@@ -15,6 +15,8 @@ A question that fails is an error in the question set, so the run stops and list
 
 Retrieval searches the whole index (all splits), as a user would. Metrics:
 - recall@1/3/5/10: a chunk from the gold call is in the top n; turn_hit@k: a gold turn is in the top k
+- turn_shown@k: a gold turn is in the top k or within --neighbors turns of a top-k hit in the gold
+  call, i.e. the model actually sees the answer turn
 - MRR@10 over the gold call's first rank
 Answers (unless --retrieval-only), using the top k chunks:
 - answerable: found rate, citation accuracy (a cited chunk is from the gold call),
@@ -80,11 +82,13 @@ def validate(questions: list[dict], docs: dict[str, str]) -> list[str]:
     return problems
 
 
-def retrieval_outcome(q: dict, hits) -> dict:
+def retrieval_outcome(q: dict, hits, k: int = 5, neighbors: int = 0) -> dict:
     calls = [h.call_id for h in hits]
     rank = calls.index(q["call_id"]) + 1 if q["call_id"] in calls else None
     gold_turns = {f"{q['call_id']}:{t}" for t in q["turn_ids"]}
-    return {"rank": rank, "turn_ranks": [i + 1 for i, h in enumerate(hits) if h.chunk_id in gold_turns]}
+    shown = any(h.call_id == q["call_id"] and abs(h.turn_id - t) <= neighbors for h in hits[:k] for t in q["turn_ids"])
+    return {"rank": rank, "turn_ranks": [i + 1 for i, h in enumerate(hits) if h.chunk_id in gold_turns],
+            "turn_shown": shown}
 
 
 def answer_outcome(q: dict, a) -> dict:
@@ -105,6 +109,7 @@ def summarize(rows: list[dict], k: int, with_answers: bool) -> dict:
     for n in RANKS:
         res[f"recall@{n}"] = rate(sum(r["rank"] is not None and r["rank"] <= n for r in ans), len(ans))
     res[f"turn_hit@{k}"] = rate(sum(any(t <= k for t in r["turn_ranks"]) for r in ans), len(ans))
+    res[f"turn_shown@{k}"] = rate(sum(r.get("turn_shown", False) for r in ans), len(ans))
     res["mrr@10"] = rate(sum(1 / r["rank"] for r in ans if r["rank"]), len(ans))
     if with_answers:
         res["answer_found"] = rate(sum(r["found"] for r in ans), len(ans))
@@ -116,13 +121,14 @@ def summarize(rows: list[dict], k: int, with_answers: bool) -> dict:
     return res
 
 
-def run(questions: list[dict], index, answerer=None, k: int = 5, mode: str = "dense") -> tuple[dict, list[dict]]:
+def run(questions: list[dict], index, answerer=None, k: int = 5, mode: str = "dense",
+        neighbors: int = 0) -> tuple[dict, list[dict]]:
     rows = []
     for q in questions:
         hits = index.search(q["question"], k=SEARCH_DEPTH, mode=mode)
         row = {"id": q["id"], "answerable": bool(q.get("call_id"))}
         if row["answerable"]:
-            row.update(retrieval_outcome(q, hits))
+            row.update(retrieval_outcome(q, hits, k, neighbors))
         if answerer is not None:
             row.update(answer_outcome(q, answerer.ask(q["question"])))
         rows.append(row)
@@ -139,9 +145,10 @@ def main() -> None:
     p.add_argument("-k", type=int, default=5, help="chunks given to the answering model")
     p.add_argument("--retrieval-only", action="store_true", help="skip the LLM; retrieval metrics only")
     p.add_argument("--mode", default="dense", choices=["dense", "bm25", "hybrid"], help="retrieval mode")
+    p.add_argument("--neighbors", type=int, default=0, help="turns shown before and after each matched turn")
     p.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
-    p.add_argument("--json", type=Path, help="default: results/rag_eval_<split>[_<mode>][_retrieval].json "
-                                             "(no mode suffix for dense)")
+    p.add_argument("--json", type=Path, help="default: results/rag_eval_<split>[_<mode>][_n<neighbors>]"
+                                             "[_retrieval].json (no mode suffix for dense)")
     args = p.parse_args()
 
     questions = load_questions(args.questions or QUESTIONS_DIR / f"rag_{args.split}.jsonl")
@@ -151,19 +158,20 @@ def main() -> None:
         print("question set does not match the index:\n  " + "\n  ".join(problems), file=sys.stderr)
         sys.exit(1)
 
-    answerer = None if args.retrieval_only else Answerer(index=index, k=args.k, mode=args.mode)
-    metrics, rows = run(questions, index, answerer, args.k, args.mode)
+    answerer = None if args.retrieval_only else Answerer(index=index, k=args.k, mode=args.mode,
+                                                          neighbors=args.neighbors)
+    metrics, rows = run(questions, index, answerer, args.k, args.mode, args.neighbors)
     info = index.info
-    res = {"split": args.split, "k": args.k, "retrieval": args.mode, "index": {key: info.get(key) for key in
+    res = {"split": args.split, "k": args.k, "retrieval": args.mode, "neighbors": args.neighbors, "index": {key: info.get(key) for key in
                                                       ("embed_model", "context_turns", "detector", "n_chunks")},
            "llm": None if answerer is None else answerer.provenance(), **metrics,
            "llm_requests": 0 if answerer is None else answerer.requests,
            "llm_cache_hits": 0 if answerer is None else answerer.cache_hits, "questions": rows}
 
     print(f"RAG EVAL  split {args.split}  {metrics['n_answerable']} answerable + {metrics['n_unanswerable']} "
-          f"unanswerable  {args.mode} retrieval  index {res['index']['embed_model']} "
+          f"unanswerable  {args.mode} retrieval  neighbors {args.neighbors}  index {res['index']['embed_model']} "
           f"context {res['index']['context_turns']}")
-    for key in [f"recall@{n}" for n in RANKS] + [f"turn_hit@{args.k}", "mrr@10", "answer_found", "citation_accuracy",
+    for key in [f"recall@{n}" for n in RANKS] + [f"turn_hit@{args.k}", f"turn_shown@{args.k}", "mrr@10", "answer_found", "citation_accuracy",
                                                    "answer_term_match", "false_not_found", "abstention_rate"]:
         if key in metrics:
             print(f"  {key:<20}{metrics[key]:.3f}")
@@ -174,7 +182,8 @@ def main() -> None:
     missed = [r["id"] for r in rows if r["answerable"] and not (r["rank"] and r["rank"] <= args.k)]
     if missed:
         print(f"  not in top {args.k}: {', '.join(missed)}")
-    suffix = ("" if args.mode == "dense" else f"_{args.mode}") + ("_retrieval" if args.retrieval_only else "")
+    suffix = (("" if args.mode == "dense" else f"_{args.mode}") + (f"_n{args.neighbors}" if args.neighbors else "")
+              + ("_retrieval" if args.retrieval_only else ""))
     out = args.json or Path("results") / f"rag_eval_{args.split}{suffix}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=2) + "\n", encoding="utf-8")

@@ -3,8 +3,10 @@
 python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--split test]
 
 1. Retrieve the top k redacted chunks from the index.
-2. Show them to the LLM as numbered excerpts. It must answer only from them, cite the
-   excerpt numbers it used, and reply NOT_FOUND when they do not support an answer.
+2. Show them to the LLM as numbered excerpts. With neighbors=n, each excerpt also shows the
+   n turns before and after the matched turn, since an answer often sits in the reply to the
+   turn that matched. The model must answer only from the excerpts, cite the excerpt numbers
+   it used, and reply NOT_FOUND when they do not support an answer.
 3. Server check: the reply must parse, cite at least one excerpt, and cite only excerpts
    that were retrieved. Anything else is discarded and returned as not found.
 
@@ -59,20 +61,29 @@ class Answer:
     answer: str                          # NOT_FOUND unless found
     found: bool
     citations: list[Citation]
-    retrieved: list[str]                 # chunk ids shown to the model, in rank order
+    retrieved: list[str]                 # matched chunk ids, in rank order
     rejected: str | None = None          # why a model reply was discarded, if it was
     provenance: dict = field(default_factory=dict)
+    shown: list[str] = field(default_factory=list)  # every chunk id in the prompt, neighbors included
 
     def to_dict(self) -> dict:
         return {"question": self.question, "answer": self.answer, "found": self.found,
                 "citations": [c.__dict__ for c in self.citations], "retrieved": self.retrieved,
-                "rejected": self.rejected, "provenance": self.provenance}
+                "rejected": self.rejected, "provenance": self.provenance, "shown": self.shown}
 
 
-def build_user_message(question: str, hits) -> str:
+def build_user_message(question: str, hits, windows=None) -> str:
+    """Numbered excerpts. windows[i] (optional) holds hit i plus its neighboring turns."""
     lines = [f"Question: {question}", "", "Excerpts:"]
     for i, h in enumerate(hits, 1):
-        lines.append(f"[{i}] call {h.call_id}, turn {h.turn_id}, {h.speaker} at {h.start_sec:.0f}s: {h.text}")
+        win = windows[i - 1] if windows else [h]
+        if len(win) == 1:  # the original one-line format, so earlier cached replies stay valid
+            lines.append(f"[{i}] call {h.call_id}, turn {h.turn_id}, {h.speaker} at {h.start_sec:.0f}s: {h.text}")
+            continue
+        lines.append(f"[{i}] call {h.call_id}, turns {win[0].turn_id}-{win[-1].turn_id} (matched turn {h.turn_id}):")
+        for w in win:
+            mark = "*" if w.chunk_id == h.chunk_id else " "
+            lines.append(f"  {mark} turn {w.turn_id}, {w.speaker} at {w.start_sec:.0f}s: {w.text}")
     return "\n".join(lines)
 
 
@@ -129,13 +140,14 @@ def check_reply(raw: str, hits) -> tuple[str, list[int], str | None]:
 
 class Answerer:
     def __init__(self, index=None, provider=None, k: int = 5, prompt_version: str = PROMPT_VERSION,
-                 cache_dir: Path | None = CACHE_DIR, mode: str = "dense"):
+                 cache_dir: Path | None = CACHE_DIR, mode: str = "dense", neighbors: int = 0):
         if prompt_version not in PROMPTS:
             raise KeyError(f"unknown prompt version {prompt_version!r}; known: {sorted(PROMPTS)}")
         self._index = index
         self._provider = provider
         self.k = k
         self.mode = mode
+        self.neighbors = neighbors
         self.prompt_version = prompt_version
         self.cache_dir = cache_dir
         self.requests = 0
@@ -159,7 +171,8 @@ class Answerer:
 
     def provenance(self) -> dict:
         return {"provider": self.provider.name, "model": self.provider.model, "prompt_version": self.prompt_version,
-                "k": self.k, "retrieval": self.mode}
+                "k": self.k, "retrieval": self.mode,
+                "neighbors": self.neighbors}
 
     def _complete(self, user: str) -> str:
         p = self.provider
@@ -180,10 +193,13 @@ class Answerer:
         retrieved = [h.chunk_id for h in hits]
         if not hits:
             return Answer(question, NOT_FOUND, False, [], retrieved, "nothing retrieved", self.provenance())
-        answer, cited, rejected = check_reply(self._complete(build_user_message(question, hits)), hits)
+        windows = self.index.with_neighbors(hits, self.neighbors) if self.neighbors else None
+        shown = [w.chunk_id for win in (windows or [[h] for h in hits]) for w in win]
+        answer, cited, rejected = check_reply(self._complete(build_user_message(question, hits, windows)), hits)
         citations = [Citation(hits[i].chunk_id, hits[i].call_id, hits[i].turn_id, hits[i].speaker,
                               hits[i].start_sec, hits[i].text) for i in cited]
-        return Answer(question, answer, answer != NOT_FOUND, citations, retrieved, rejected, self.provenance())
+        return Answer(question, answer, answer != NOT_FOUND, citations, retrieved, rejected, self.provenance(),
+                      list(dict.fromkeys(shown)))
 
 
 def main() -> None:
@@ -193,10 +209,11 @@ def main() -> None:
     p.add_argument("--split", choices=["train", "dev", "test"])
     p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS))
     p.add_argument("--mode", default="dense", choices=["dense", "bm25", "hybrid"], help="retrieval mode")
+    p.add_argument("--neighbors", type=int, default=0, help="turns shown before and after each matched turn")
     p.add_argument("--json", action="store_true", help="print the full answer record as JSON")
     args = p.parse_args()
 
-    a = Answerer(k=args.k, prompt_version=args.prompt, mode=args.mode).ask(args.question, args.split)
+    a = Answerer(k=args.k, prompt_version=args.prompt, mode=args.mode, neighbors=args.neighbors).ask(args.question, args.split)
     if args.json:
         print(json.dumps(a.to_dict(), indent=2))
         return
@@ -206,7 +223,7 @@ def main() -> None:
     for c in a.citations:
         print(f"  [{c.chunk_id} {c.start_sec:.0f}s {c.speaker}] {c.snippet}")
     pv = a.provenance
-    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, {pv['retrieval']} retrieval, "
+    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, {pv['retrieval']} retrieval, neighbors {pv['neighbors']}, "
           f"retrieved {len(a.retrieved)}")
 
 

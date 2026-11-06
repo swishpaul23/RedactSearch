@@ -78,7 +78,8 @@ def test_ask_maps_citations_to_calls(tmp_path):
         ("call_0001", 0, "I want a refund for the subscription I cancelled.")]
     assert a.retrieved == ["call_0001:0", "call_0002:3", "call_0003:1"]
     assert idx.calls == [("why a refund?", 3, "test", "dense")]
-    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "dense"}
+    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "dense",
+                            "neighbors": 0}
     system, user = prov.seen[0]
     assert system == PROMPTS["v1"] and "[CARD]" in user  # only redacted index text goes in
 
@@ -118,3 +119,26 @@ def test_mode_is_passed_to_the_index(tmp_path):
     idx = FakeIndex()
     a = Answerer(idx, FakeProvider(reply("A refund.", [1])), cache_dir=tmp_path, mode="hybrid").ask("q")
     assert idx.calls[0][3] == "hybrid" and a.provenance["retrieval"] == "hybrid"
+
+
+class WindowIndex(FakeIndex):
+    """Adds the previous and next turn of each hit."""
+    def with_neighbors(self, hits, n):
+        return [[hit(h.call_id, h.turn_id - 1, "Is it expensive?", "customer"), h,
+                 hit(h.call_id, h.turn_id + 1, "Yes, very.", "agent")] for h in hits]
+
+
+def test_user_message_with_windows_marks_the_matched_turn():
+    windows = WindowIndex().with_neighbors(HITS[:1], 1)
+    msg = build_user_message("q", HITS[:1], windows)
+    assert "[1] call call_0001, turns -1-1 (matched turn 0):" in msg
+    assert "  * turn 0, customer at 0s: I want a refund" in msg and "    turn 1, agent at 3s: Yes, very." in msg
+    assert build_user_message("q", HITS[:1], [[HITS[0]]]) == build_user_message("q", HITS[:1])  # 1-turn = old format
+
+
+def test_neighbors_are_shown_but_citations_stay_on_matched_turns(tmp_path):
+    prov = FakeProvider(reply("Very expensive.", [2]))
+    a = Answerer(WindowIndex(), prov, k=2, cache_dir=tmp_path, neighbors=1).ask("q")
+    assert a.found and [c.chunk_id for c in a.citations] == ["call_0002:3"]
+    assert a.shown == ["call_0001:-1", "call_0001:0", "call_0001:1", "call_0002:2", "call_0002:3", "call_0002:4"]
+    assert "Yes, very." in prov.seen[0][1] and a.provenance["neighbors"] == 1
