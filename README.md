@@ -190,6 +190,20 @@ python -m callsearch.rag.store "customer wants a refund" -k 5
 
   Structured leaks always fail. Leaked names fail unless `--allow-person-leaks` is passed, and the count is saved either way. `test_built_index_has_no_structured_pii` re-runs the pattern scan on the built index whenever one exists.
 
+## Answers with citations (Phase 3)
+
+```powershell
+$env:CALLSEARCH_LLM_PROVIDER="ollama"; $env:CALLSEARCH_OLLAMA_MODEL="qwen2:7b"   # or anthropic
+python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--split test] [--json]
+```
+
+1. The top `k` chunks come from the index. They are already redacted, and nothing else ever goes into the prompt.
+2. The model sees them as numbered excerpts (call id, turn, speaker, time, text). It must answer from them only, cite the excerpt numbers it used, treat placeholders as removed data, and reply `NOT_FOUND` when the excerpts do not answer the question.
+3. **Server check:** the reply must parse as JSON, cite at least one excerpt, and cite only excerpts that were retrieved. A reply that fails any of these is discarded, returned as `NOT_FOUND`, and the reason is recorded in `rejected`. A model that says `NOT_FOUND` is a valid outcome, not a rejection.
+4. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
+
+The provider is the one the LLM redaction layer uses (`CALLSEARCH_LLM_PROVIDER`), so Claude and a local Ollama model are interchangeable. Replies are cached in `.cache/answers/`, keyed by provider, model, prompt version, question and retrieved chunks, so eval reruns are free. Prompts are versioned in `PROMPTS` like the redaction prompts.
+
 ## Data and results layout
 
 | Path | Contents | In git |
