@@ -11,7 +11,7 @@ import argparse
 import json
 from pathlib import Path
 
-DETECTORS = ["regex", "ner", "pipeline", "presidio", "presidio_casin", "pipeline_llm"]
+DETECTORS = ["regex", "ner", "pipeline", "ner_hf", "pipeline_hf", "presidio", "presidio_casin", "pipeline_llm"]
 LLM_DETECTORS = {"llm", "pipeline_llm"}
 TYPES = ["PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"]
 SUMMARY_TYPES = ["CARD", "SIN", "PERSON"]

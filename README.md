@@ -44,7 +44,7 @@ All personal data is fake, generated with Faker and checksum generators. `data/r
 python -m callsearch.eval.redaction_eval --detector pipeline --split dev
 ```
 
-The eval prints per-type precision/recall/F1, exact-match recall, a leak check and distractor false positives. Detectors are `regex`, `ner`, `pipeline` (regex + ner, merged by type priority), `presidio`, `presidio_casin`, `llm` and `pipeline_llm` (see below). Results are saved to `results/eval_<detector>_<split>.json`. Pass `--json PATH` to save somewhere else, or `--no-save` to only print.
+The eval prints per-type precision/recall/F1, exact-match recall, a leak check and distractor false positives. Detectors are `regex`, `ner`, `pipeline` (regex + ner, merged by type priority), `ner_hf`, `pipeline_hf` (the DistilBERT versions), `presidio`, `presidio_casin`, `llm` and `pipeline_llm` (see below). Results are saved to `results/eval_<detector>_<split>.json`. Pass `--json PATH` to save somewhere else, or `--no-save` to only print.
 
 **Tune on `dev`. Run `test` only for reported numbers.**
 
@@ -58,6 +58,33 @@ python scripts/show_errors.py --detector pipeline --split dev --type PERSON --n 
 `train_ner.py` trains a fresh PERSON-only NER component on the train split, on top of en_core_web_sm's pretrained tok2vec (`--base blank` starts from scratch instead). It picks the best epoch on the dev split and stops early once dev F1 stops improving. The test split is never read. The model goes to `models/` (gitignored) and a summary to `results/train_ner_spacy.json`.
 
 `show_errors.py` prints false positives and negatives with context. It defaults to dev and refuses `--split test` unless `--allow-test` is passed.
+
+### DistilBERT comparison (Hugging Face Transformers)
+
+```powershell
+python scripts/train_ner_hf.py --epochs 6 --lr 5e-5 --batch-size 16 --seed 42 --out models/ner_distilbert
+python -m callsearch.eval.redaction_eval --detector ner_hf --split dev
+python -m callsearch.eval.redaction_eval --detector pipeline_hf --split dev
+```
+
+A second NER model from a different family, to check whether the spaCy choice holds up. `train_ner_hf.py` fine-tunes `distilbert/distilbert-base-cased` as a token classifier and follows the same protocol as `train_ner.py`: it trains on train, picks the best epoch on dev by exact-match PERSON F1, stops early, and never reads test. The first run downloads the base model (about 260 MB). It runs on the CPU unless CUDA is available. The model goes to `models/ner_distilbert/` (gitignored) and a summary, including the parameter count, model size and training time, goes to `results/train_ner_distilbert.json`.
+
+- **Labels:** BIO tags (`O`, `B-PERSON`, `I-PERSON`) on every subword. Gold character offsets are aligned to tokens through the fast tokenizer's offset mapping, and predictions are mapped back the same way, then grown to whole words.
+- **Long turns:** split into overlapping 256-token windows at inference.
+- **Detectors:** `ner_hf` is DistilBERT alone and `pipeline_hf` is regex + DistilBERT, the counterparts of `ner` and `pipeline`.
+
+**Results (PERSON).** Both models were trained with seed 42 on the same train split and selected on dev. Test was run once.
+
+| model | dev F1 | test precision | test recall | test F1 | test leak | size | CPU training |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| spaCy (`ner`, en_core_web_sm tok2vec) | 0.855 | 0.924 | 0.865 | 0.893 | 14.3% | 7.8 MB | 3 min |
+| DistilBERT (`ner_hf`, distilbert-base-cased) | 0.945 | 0.981 | 0.959 | 0.970 | 4.1% | 261 MB | 31 min |
+| Presidio default (en_core_web_lg) | none | 0.807 | 0.910 | 0.855 | 9.4% | none | none |
+
+- **Dev F1** is exact span match, as reported by each training script. The test columns come from `redaction_eval`.
+- **With regex** (`pipeline_hf` vs `pipeline`) on test: overall leak rate 2.3% vs 7.9%. The structured types stay at 100% recall and 0 distractor hits in both.
+- **Trade-off:** DistilBERT leaks 3.5 times fewer names than spaCy, but it is 33 times larger (65.2M parameters) and trains 11 times slower on a laptop CPU.
+- **Single run:** one seed per model. The gap is large, but it has not been checked across seeds.
 
 ## Presidio baseline (off-the-shelf comparison)
 

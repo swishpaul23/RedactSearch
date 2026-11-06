@@ -1,0 +1,121 @@
+{
+  "detector": "ner_hf",
+  "n_calls": 60,
+  "per_type": {
+    "PERSON": {
+      "precision": 0.9612903225806452,
+      "recall": 0.9675324675324676,
+      "f1": 0.964401294498382,
+      "tp": 149,
+      "fp": 6,
+      "fn": 5,
+      "support": 154,
+      "exact_recall": 0.948051948051948,
+      "leaked": 5,
+      "leak_rate": 0.032467532467532464
+    },
+    "EMAIL": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 32,
+      "support": 32,
+      "exact_recall": 0.0,
+      "leaked": 32,
+      "leak_rate": 1.0
+    },
+    "PHONE": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 37,
+      "support": 37,
+      "exact_recall": 0.0,
+      "leaked": 37,
+      "leak_rate": 1.0
+    },
+    "CARD": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 31,
+      "support": 31,
+      "exact_recall": 0.0,
+      "leaked": 31,
+      "leak_rate": 1.0
+    },
+    "SIN": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 5,
+      "support": 5,
+      "exact_recall": 0.0,
+      "leaked": 5,
+      "leak_rate": 1.0
+    },
+    "ACCOUNT": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 10,
+      "support": 10,
+      "exact_recall": 0.0,
+      "leaked": 10,
+      "leak_rate": 1.0
+    }
+  },
+  "micro": {
+    "precision": 0.9612903225806452,
+    "recall": 0.5539033457249071,
+    "f1": 0.7028301886792453,
+    "tp": 149,
+    "fp": 6,
+    "fn": 120,
+    "support": 269,
+    "leaked": 120,
+    "exact_recall": 0.5427509293680297,
+    "leak_rate": 0.44609665427509293
+  },
+  "micro_excl_person": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 115,
+    "support": 115,
+    "leaked": 115,
+    "exact_recall": 0.0,
+    "leak_rate": 1.0
+  },
+  "distractor_fp": {
+    "AMOUNT": {
+      "flagged": 0,
+      "total": 32
+    },
+    "DATE": {
+      "flagged": 0,
+      "total": 20
+    },
+    "ORDER_NUMBER": {
+      "flagged": 0,
+      "total": 6
+    },
+    "REFERENCE": {
+      "flagged": 0,
+      "total": 19
+    }
+  },
+  "split": "dev"
+}

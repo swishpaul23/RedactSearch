@@ -132,12 +132,22 @@ TRAIN_KEYS = {"base", "n_train_examples", "n_dev_examples", "n_train_calls", "n_
 EPOCH_KEYS = {"epoch", "loss", "dev_precision", "dev_recall", "dev_f1"}
 
 
+HF_TRAIN_KEYS = (TRAIN_KEYS - {"base"}) | {"base_model", "device", "hyperparams", "truncated_turns", "n_parameters"}
+
+
 @pytest.mark.parametrize("path", sorted(RESULTS.rglob("train_*.json")), ids=lambda p: p.name)
 def test_training_summaries_are_metrics_only(path):
     res = json.loads(path.read_text(encoding="utf-8"))
-    assert set(res) == TRAIN_KEYS
-    assert res["base"] in {"sm", "blank"}
-    assert all(type(v) in (int, float) for k, v in res.items() if k not in {"base", "history"})
+    if "base_model" in res:  # scripts/train_ner_hf.py
+        assert set(res) == HF_TRAIN_KEYS
+        assert re.match(r"^[\w.\-]+/[\w.\-]+$", res["base_model"]) and res["device"] in {"cpu", "cuda", "mps"}
+        assert all(type(v) in (int, float) for v in res["hyperparams"].values())
+        strings = {"base_model", "device", "hyperparams", "history"}
+    else:  # scripts/train_ner.py (spaCy)
+        assert set(res) == TRAIN_KEYS
+        assert res["base"] in {"sm", "blank"}
+        strings = {"base", "history"}
+    assert all(type(v) in (int, float) for k, v in res.items() if k not in strings)
     for row in res["history"]:
         assert set(row) == EPOCH_KEYS and all(type(v) in (int, float) for v in row.values())
 

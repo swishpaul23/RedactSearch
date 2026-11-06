@@ -12,6 +12,8 @@ dependencies = [
     "presidio-analyzer==2.2.364",
     "anthropic==1.15.0",
     "python-dotenv==1.2.4",
+    "torch==2.15.0",
+    "transformers==5.22.1",
 ]
 
 [tool.setuptools.packages.find]

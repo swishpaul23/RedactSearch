@@ -29,6 +29,8 @@ _REGISTRY: dict[str, str] = {
     "regex": "callsearch.redact.regex:RegexDetector",
     "ner": "callsearch.redact.ner:SpacyNerDetector",
     "pipeline": "callsearch.redact.pipeline:PipelineDetector",
+    "ner_hf": "callsearch.redact.ner_hf:HFNerDetector",
+    "pipeline_hf": "callsearch.redact.pipeline:PipelineHFDetector",
     "presidio": "callsearch.redact.presidio_baseline:PresidioDetector",
     "presidio_casin": "callsearch.redact.presidio_baseline:PresidioCaSinDetector",
     "llm": "callsearch.redact.llm:LLMDetector",

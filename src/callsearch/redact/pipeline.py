@@ -18,3 +18,15 @@ class PipelineDetector:
 
     def detect(self, text: str) -> list[Span]:
         return resolve_overlaps([s for d in self.detectors for s in d.detect(text)])
+
+
+class PipelineHFDetector(PipelineDetector):
+    """regex + the DistilBERT NER (ner_hf) instead of spaCy, for the NER comparison."""
+
+    def __init__(self, detectors: list[Detector] | None = None, name: str = "pipeline_hf"):
+        if detectors is None:
+            from callsearch.redact.ner_hf import HFNerDetector
+            from callsearch.redact.regex import RegexDetector
+
+            detectors = [RegexDetector(), HFNerDetector()]
+        super().__init__(detectors, name)
