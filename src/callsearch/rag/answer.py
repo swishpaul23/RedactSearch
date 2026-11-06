@@ -42,7 +42,30 @@ Reply with JSON only, no other text:
 {"answer": "<one or two sentences>", "citations": [<excerpt numbers>]}
 If the excerpts do not answer the question, reply exactly:
 {"answer": "NOT_FOUND", "citations": []}"""
+PROMPTS["v2"] = """You answer questions about customer-service calls using only the numbered excerpts you are given.
+Each excerpt shows a few turns from one call. The turn marked * is the one the search matched.
+
+Decide in two steps:
+1. Find an excerpt about the same thing the question asks about. Every specific detail in the question
+   (train id, day, time, place, venue name, number of people) must match what that excerpt says.
+   An excerpt about a different train, day, venue or booking does not count, even if it looks similar.
+2. Answer only if that excerpt directly states the fact the question asks for.
+If no excerpt passes both steps, reply NOT_FOUND. NOT_FOUND is the correct reply when the excerpts do not
+contain the answer. A wrong answer is worse than NOT_FOUND.
+
+Other rules:
+- No outside knowledge, no guessing, and no combining facts from different calls.
+- Placeholders such as [PERSON], [CARD], [PHONE], [EMAIL], [SIN] and [ACCOUNT] stand for personal data
+  that was removed. Never guess what they hide, and do not count them as an answer.
+- Cite the number of every excerpt you used.
+
+Reply with JSON only, no other text:
+{"answer": "<one or two sentences>", "citations": [<excerpt numbers>]}
+If the excerpts do not answer the question, reply exactly:
+{"answer": "NOT_FOUND", "citations": []}"""
 PROMPT_VERSION = "v1"
+DEFAULT_MODE = "bm25"   # best citation accuracy on the dev questions, see README
+DEFAULT_NEIGHBORS = 1
 
 
 @dataclass(frozen=True)
@@ -140,7 +163,8 @@ def check_reply(raw: str, hits) -> tuple[str, list[int], str | None]:
 
 class Answerer:
     def __init__(self, index=None, provider=None, k: int = 5, prompt_version: str = PROMPT_VERSION,
-                 cache_dir: Path | None = CACHE_DIR, mode: str = "dense", neighbors: int = 0):
+                 cache_dir: Path | None = CACHE_DIR, mode: str = DEFAULT_MODE,
+                 neighbors: int = DEFAULT_NEIGHBORS):
         if prompt_version not in PROMPTS:
             raise KeyError(f"unknown prompt version {prompt_version!r}; known: {sorted(PROMPTS)}")
         self._index = index
@@ -208,8 +232,9 @@ def main() -> None:
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--split", choices=["train", "dev", "test"])
     p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS))
-    p.add_argument("--mode", default="dense", choices=["dense", "bm25", "hybrid"], help="retrieval mode")
-    p.add_argument("--neighbors", type=int, default=0, help="turns shown before and after each matched turn")
+    p.add_argument("--mode", default=DEFAULT_MODE, choices=["dense", "bm25", "hybrid"], help="retrieval mode")
+    p.add_argument("--neighbors", type=int, default=DEFAULT_NEIGHBORS,
+                   help="turns shown before and after each matched turn")
     p.add_argument("--json", action="store_true", help="print the full answer record as JSON")
     args = p.parse_args()
 

@@ -200,7 +200,7 @@ python -m callsearch.rag.store "customer wants a refund" -k 5
 
 ```powershell
 $env:CALLSEARCH_LLM_PROVIDER="ollama"; $env:CALLSEARCH_OLLAMA_MODEL="qwen2:7b"   # or anthropic
-python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--split test] [--json]
+python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--mode bm25] [--neighbors 1] [--prompt v1] [--split test] [--json]
 ```
 
 1. The top `k` chunks come from the index. They are already redacted, and nothing else ever goes into the prompt.
@@ -236,6 +236,19 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 | answer_term_match | the answer text contains an expected term (a string check; an LLM judge comes later) |
 | false_not_found | answerable questions answered NOT_FOUND |
 | abstention_rate | unanswerable questions answered NOT_FOUND |
+
+**Dev results** (`qwen2:7b`, prompt v1, k 5, bge-small index with 1 context turn). The first row is the original setup, and the defaults are now `--mode bm25 --neighbors 1`.
+
+| retrieval | neighbors | recall@5 | turn_shown@5 | citation_accuracy | answer_term_match | abstention_rate |
+|---|---:|---:|---:|---:|---:|---:|
+| dense | 0 | 0.657 | 0.571 | 0.571 | 0.629 | 0.625 |
+| dense | 1 | 0.657 | 0.629 | 0.629 | 0.686 | 0.250 |
+| **bm25** | **1** | **0.914** | **0.714** | **0.771** | **0.686** | 0.125 |
+| hybrid | 1 | 0.771 | 0.657 | 0.686 | 0.657 | 0.125 |
+
+- BM25 finds the right call most often. Neighbouring turns then let the model see the answer, which is usually in the reply to the matched turn.
+- With more context, the v1 prompt almost never says NOT_FOUND on unanswerable questions (1 of 8). Prompt v2 makes the model check that an excerpt matches every detail in the question before answering.
+- **Caveats:** the dev set has 35 + 8 questions, so one question moves a rate by 3 or 12.5 points. The questions also name exact details (train ids, reference numbers), which favours keyword search; vaguer real-world questions may favour dense or hybrid.
 
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
 

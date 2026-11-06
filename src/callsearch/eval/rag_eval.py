@@ -1,6 +1,6 @@
 """Phase 3: Evaluate retrieval and answer quality with citation checks.
 
-python -m callsearch.eval.rag_eval --split test [--mode hybrid] [--retrieval-only] [-k 5]
+python -m callsearch.eval.rag_eval --split test [--mode bm25] [--neighbors 1] [--prompt v2] [--retrieval-only] [-k 5]
 
 Question file: data/questions/rag_<split>.jsonl, one object per line.
   answerable:   {"id", "question", "call_id", "turn_ids", "evidence", "answer_terms"}
@@ -136,7 +136,7 @@ def run(questions: list[dict], index, answerer=None, k: int = 5, mode: str = "de
 
 
 def main() -> None:
-    from callsearch.rag.answer import Answerer
+    from callsearch.rag.answer import DEFAULT_MODE, DEFAULT_NEIGHBORS, PROMPT_VERSION, PROMPTS, Answerer
     from callsearch.rag.store import DEFAULT_INDEX_DIR, CallIndex
 
     p = argparse.ArgumentParser(description="Evaluate retrieval and cited answers on a question set.")
@@ -144,11 +144,13 @@ def main() -> None:
     p.add_argument("--questions", type=Path, help="default: data/questions/rag_<split>.jsonl")
     p.add_argument("-k", type=int, default=5, help="chunks given to the answering model")
     p.add_argument("--retrieval-only", action="store_true", help="skip the LLM; retrieval metrics only")
-    p.add_argument("--mode", default="dense", choices=["dense", "bm25", "hybrid"], help="retrieval mode")
-    p.add_argument("--neighbors", type=int, default=0, help="turns shown before and after each matched turn")
+    p.add_argument("--mode", default=DEFAULT_MODE, choices=["dense", "bm25", "hybrid"], help="retrieval mode")
+    p.add_argument("--neighbors", type=int, default=DEFAULT_NEIGHBORS,
+                   help="turns shown before and after each matched turn")
+    p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS), help="answer prompt version")
     p.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
     p.add_argument("--json", type=Path, help="default: results/rag_eval_<split>[_<mode>][_n<neighbors>]"
-                                             "[_retrieval].json (no mode suffix for dense)")
+                                             "[_<prompt>][_retrieval].json (no suffix for dense, 0 or v1)")
     args = p.parse_args()
 
     questions = load_questions(args.questions or QUESTIONS_DIR / f"rag_{args.split}.jsonl")
@@ -159,7 +161,7 @@ def main() -> None:
         sys.exit(1)
 
     answerer = None if args.retrieval_only else Answerer(index=index, k=args.k, mode=args.mode,
-                                                          neighbors=args.neighbors)
+                                                          neighbors=args.neighbors, prompt_version=args.prompt)
     metrics, rows = run(questions, index, answerer, args.k, args.mode, args.neighbors)
     info = index.info
     res = {"split": args.split, "k": args.k, "retrieval": args.mode, "neighbors": args.neighbors, "index": {key: info.get(key) for key in
@@ -183,6 +185,7 @@ def main() -> None:
     if missed:
         print(f"  not in top {args.k}: {', '.join(missed)}")
     suffix = (("" if args.mode == "dense" else f"_{args.mode}") + (f"_n{args.neighbors}" if args.neighbors else "")
+              + ("" if args.prompt == "v1" or args.retrieval_only else f"_{args.prompt}")
               + ("_retrieval" if args.retrieval_only else ""))
     out = args.json or Path("results") / f"rag_eval_{args.split}{suffix}.json"
     out.parent.mkdir(parents=True, exist_ok=True)

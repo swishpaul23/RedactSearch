@@ -166,7 +166,7 @@ def main() -> None:
     p.add_argument("query")
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--split", choices=["train", "dev", "test"])
-    p.add_argument("--mode", default=DEFAULT_MODE, choices=MODES)
+    p.add_argument("--mode", default="bm25", choices=MODES)
     p.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
     args = p.parse_args()
     for h in CallIndex(args.index_dir).search(args.query, args.k, args.split, args.mode):

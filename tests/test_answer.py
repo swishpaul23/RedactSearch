@@ -26,6 +26,9 @@ class FakeIndex:
         self.calls.append((query, k, split, mode))
         return self.hits[:k]
 
+    def with_neighbors(self, hits, n):
+        return [[h] for h in hits]  # no neighbouring turns stored
+
 
 class FakeProvider:
     name, model = "fake", "fake-1"
@@ -77,9 +80,9 @@ def test_ask_maps_citations_to_calls(tmp_path):
     assert [(c.call_id, c.turn_id, c.snippet) for c in a.citations] == [
         ("call_0001", 0, "I want a refund for the subscription I cancelled.")]
     assert a.retrieved == ["call_0001:0", "call_0002:3", "call_0003:1"]
-    assert idx.calls == [("why a refund?", 3, "test", "dense")]
-    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "dense",
-                            "neighbors": 0}
+    assert idx.calls == [("why a refund?", 3, "test", "bm25")]
+    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "bm25",
+                            "neighbors": 1}
     system, user = prov.seen[0]
     assert system == PROMPTS["v1"] and "[CARD]" in user  # only redacted index text goes in
 
@@ -142,3 +145,11 @@ def test_neighbors_are_shown_but_citations_stay_on_matched_turns(tmp_path):
     assert a.found and [c.chunk_id for c in a.citations] == ["call_0002:3"]
     assert a.shown == ["call_0001:-1", "call_0001:0", "call_0001:1", "call_0002:2", "call_0002:3", "call_0002:4"]
     assert "Yes, very." in prov.seen[0][1] and a.provenance["neighbors"] == 1
+
+
+def test_v2_prompt_is_used_and_keyed_separately(tmp_path):
+    prov = FakeProvider(reply("A refund.", [1]), reply("NOT_FOUND", []))
+    Answerer(FakeIndex(), prov, cache_dir=tmp_path, prompt_version="v1").ask("q")
+    a = Answerer(FakeIndex(), prov, cache_dir=tmp_path, prompt_version="v2").ask("q")  # not served from v1's cache
+    assert prov.seen[1][0] == PROMPTS["v2"] and "A wrong answer is worse than NOT_FOUND" in PROMPTS["v2"]
+    assert not a.found and a.provenance["prompt_version"] == "v2"
