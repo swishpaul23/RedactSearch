@@ -22,8 +22,8 @@ class FakeIndex:
         self.hits = hits
         self.calls = []
 
-    def search(self, query, k=5, split=None):
-        self.calls.append((query, k, split))
+    def search(self, query, k=5, split=None, mode="dense"):
+        self.calls.append((query, k, split, mode))
         return self.hits[:k]
 
 
@@ -77,8 +77,8 @@ def test_ask_maps_citations_to_calls(tmp_path):
     assert [(c.call_id, c.turn_id, c.snippet) for c in a.citations] == [
         ("call_0001", 0, "I want a refund for the subscription I cancelled.")]
     assert a.retrieved == ["call_0001:0", "call_0002:3", "call_0003:1"]
-    assert idx.calls == [("why a refund?", 3, "test")]
-    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3}
+    assert idx.calls == [("why a refund?", 3, "test", "dense")]
+    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "dense"}
     system, user = prov.seen[0]
     assert system == PROMPTS["v1"] and "[CARD]" in user  # only redacted index text goes in
 
@@ -112,3 +112,9 @@ def test_to_dict_is_json():
     a = Answerer(FakeIndex(), FakeProvider(reply("A refund.", [2])), cache_dir=None).ask("q")
     d = json.loads(json.dumps(a.to_dict()))
     assert d["citations"][0]["chunk_id"] == "call_0002:3" and d["found"] is True
+
+
+def test_mode_is_passed_to_the_index(tmp_path):
+    idx = FakeIndex()
+    a = Answerer(idx, FakeProvider(reply("A refund.", [1])), cache_dir=tmp_path, mode="hybrid").ask("q")
+    assert idx.calls[0][3] == "hybrid" and a.provenance["retrieval"] == "hybrid"

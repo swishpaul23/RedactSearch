@@ -156,7 +156,7 @@ def test_results_dir_has_only_known_files():
     """results/ (including archived subfolders like v1/) holds only metric files."""
     files = [p for p in RESULTS.rglob("*") if p.is_file()]
     ok = lambda p: (p.suffix == ".json" and p.name.startswith(("eval_", "train_", "presidio_extras_",
-                                                               "llm_additions_", "index_guard"))) or (
+                                                               "llm_additions_", "index_guard", "rag_eval_"))) or (
         p.suffix == ".md" and p.name.startswith("comparison_"))
     assert all(ok(p) for p in files), files
 
@@ -232,3 +232,18 @@ def test_index_guard_is_metrics_only(path):
         assert all(TYPE_NAME.match(t) and type(v) is int for t, v in res[key].items())
     for split, counts in res["planted_leaks_by_split"].items():
         assert split in {"train", "dev", "test"} and all(TYPE_NAME.match(t) and type(v) is int for t, v in counts.items())
+
+
+@pytest.mark.parametrize("path", sorted(RESULTS.rglob("rag_eval_*.json")), ids=lambda p: p.name)
+def test_rag_eval_is_metrics_only(path):
+    res = json.loads(path.read_text(encoding="utf-8"))
+    assert res["split"] in {"dev", "test"} and type(res["k"]) is int
+    assert set(res["index"]) == {"embed_model", "context_turns", "detector", "n_chunks"}
+    assert res.get("retrieval", "dense") in {"dense", "bm25", "hybrid"}  # absent in files saved before it existed
+    assert res["llm"] is None or set(res["llm"]) - {"retrieval"} == {"provider", "model", "prompt_version", "k"}
+    skip = {"split", "index", "llm", "questions", "retrieval"}
+    assert all(type(v) in (int, float) for k, v in res.items() if k not in skip)
+    for row in res["questions"]:
+        assert re.match(r"^(dev|test)_[au]\d{2}$", row["id"])
+        assert all(k == "id" or type(v) in (bool, int, list, type(None)) for k, v in row.items())
+        assert all(type(t) is int for t in row.get("turn_ranks", []))

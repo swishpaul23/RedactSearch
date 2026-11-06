@@ -1,0 +1,20 @@
+{"id": "dev_a01", "question": "Where is the Express by Holiday Inn Cambridge located?", "call_id": "call_0020", "turn_ids": [4], "evidence": ["express by holiday inn", "15-17 norman way"], "answer_terms": ["norman way"]}
+{"id": "dev_a02", "question": "What time does train TR4227 from Stansted Airport leave?", "call_id": "call_0036", "turn_ids": [6], "evidence": ["tr4227"], "answer_terms": ["14:24"]}
+{"id": "dev_a03", "question": "What is the address of Finches Bed and Breakfast?", "call_id": "call_0058", "turn_ids": [2], "evidence": ["finches bed and breakfast", "144 thornton road"], "answer_terms": ["thornton road"]}
+{"id": "dev_a04", "question": "How much is the Sunday 05:00 train from Cambridge to London Kings Cross?", "call_id": "call_0140", "turn_ids": [6], "evidence": ["tr7423", "18.88 pounds"], "answer_terms": ["18.88"]}
+{"id": "dev_a05", "question": "Which British restaurant in the east was offered?", "call_id": "call_0148", "turn_ids": [2], "evidence": ["british food", "grafton hotel restaurant"], "answer_terms": ["grafton"]}
+{"id": "dev_a06", "question": "Which hotels were recommended in the east, one cheap and one moderately priced?", "call_id": "call_0167", "turn_ids": [4], "evidence": ["allenbell", "for something moderately priced, i would recommend the warkworth house"], "answer_terms": ["warkworth", "allenbell"]}
+{"id": "dev_a07", "question": "What is the postcode of Churchill College?", "call_id": "call_0174", "turn_ids": [4], "evidence": ["churchill college", "cb30ds"], "answer_terms": ["cb30ds"]}
+{"id": "dev_a08", "question": "Where is Old Schools and what is its postcode?", "call_id": "call_0188", "turn_ids": [4], "evidence": ["old schools is a great place", "cb21tt"], "answer_terms": ["cb21tt", "trinity lane"]}
+{"id": "dev_a09", "question": "Which expensive French restaurant in the north was suggested?", "call_id": "call_0194", "turn_ids": [6], "evidence": ["the nirala which is moderate and the royal spice which is cheap", "restaurant two two is an expensive french restaurant"], "answer_terms": ["restaurant two two"]}
+{"id": "dev_a10", "question": "Which moderately priced international restaurants in the centre were offered?", "call_id": "call_0202", "turn_ids": [4], "evidence": ["varsity restaurant and bloomsbury restaurant"], "answer_terms": ["varsity", "bloomsbury"]}
+{"id": "dev_a11", "question": "What reference number did the Restaurant Alimentum booking for 8 people get?", "call_id": "call_0216", "turn_ids": [4], "evidence": ["alimentum", "6nol39q9"], "answer_terms": ["6nol39q9"]}
+{"id": "dev_a12", "question": "How long does train TR4757 to Liverpool Street take?", "call_id": "call_0230", "turn_ids": [4], "evidence": ["tr4757 is just fine for you", "88 minutes"], "answer_terms": ["88 minutes"]}
+{"id": "dev_a13", "question": "Which expensive hotel with free wifi was found first?", "call_id": "call_0237", "turn_ids": [2], "evidence": ["gonville hotel matching your requirements"], "answer_terms": ["gonville"]}
+{"id": "dev_a14", "question": "Which Chinese restaurant in the centre did the agent say they love, for a party of 7 on Friday?", "call_id": "call_0239", "turn_ids": [4, 5], "evidence": ["ugly duckling", "reservation for 7 at 14:00 this coming friday"], "answer_terms": ["ugly duckling"]}
+{"id": "dev_a15", "question": "Are there any fine Catalan restaurants in Cambridge?", "call_id": "call_0004", "turn_ids": [2, 4], "evidence": ["catalan"], "answer_terms": ["no", "none", "aren't", "not"]}
+{"id": "dev_u01", "question": "Which caller wanted to bring a horse to the guesthouse?", "call_id": null, "absent": ["horse"]}
+{"id": "dev_u02", "question": "What is the cancellation fee at the Gonville Hotel?", "call_id": null, "absent": ["gonville", "cancellation"]}
+{"id": "dev_u03", "question": "Did anyone ask about a ferry to France?", "call_id": null, "absent": ["ferry"]}
+{"id": "dev_u04", "question": "How many vegan dishes does the Ugly Duckling serve?", "call_id": null, "absent": ["ugly duckling", "vegan"]}
+{"id": "dev_u05", "question": "Which customer asked to change their car rental?", "call_id": null, "absent": ["car rental"]}

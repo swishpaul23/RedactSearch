@@ -204,6 +204,33 @@ python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--sp
 
 The provider is the one the LLM redaction layer uses (`CALLSEARCH_LLM_PROVIDER`), so Claude and a local Ollama model are interchangeable. Replies are cached in `.cache/answers/`, keyed by provider, model, prompt version, question and retrieved chunks, so eval reruns are free. Prompts are versioned in `PROMPTS` like the redaction prompts.
 
+## RAG eval (Phase 3)
+
+```powershell
+python -m callsearch.eval.rag_eval --split dev --retrieval-only   # fast, no LLM
+python -m callsearch.eval.rag_eval --split dev                    # + cited answers
+python -m callsearch.eval.rag_eval --split test                   # reported numbers, run once
+```
+
+**Question sets** (`data/questions/rag_<split>.jsonl`, hand-written, in git): dev has 15 answerable + 5 unanswerable questions for tuning, and test has 44 + 10 for reported numbers. Each answerable question names its gold call and turns, a list of `evidence` phrases, and `answer_terms` a correct answer should contain. Unanswerable questions list `absent` phrases that no stored turn contains.
+
+**Validation before scoring:** the eval checks every question against the text actually stored in the index. The evidence must be in the gold call, the gold turns must exist, and no other call may contain all the evidence phrases. Without this check, a question about a template call would have dozens of right answers, because the 5 templates repeat their phrasing word for word across calls. Unanswerable questions must have no turn containing their `absent` phrases. If any question fails, the run stops and lists it. Answerable questions are drawn from MultiWOZ calls only, since template calls differ almost only in their (redacted) personal data.
+
+**Metrics.** Retrieval searches the whole index (all splits), as a user would.
+
+| metric | meaning |
+|---|---|
+| recall@1/3/5/10 | a chunk from the gold call is in the top n |
+| turn_hit@k | a gold turn itself is in the top k |
+| mrr@10 | mean of 1 / rank of the gold call's first chunk |
+| answer_found | answerable questions that got an answer (not NOT_FOUND) |
+| citation_accuracy | the answer cites a chunk from the gold call |
+| answer_term_match | the answer text contains an expected term (a string check; an LLM judge comes later) |
+| false_not_found | answerable questions answered NOT_FOUND |
+| abstention_rate | unanswerable questions answered NOT_FOUND |
+
+Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
+
 ## Data and results layout
 
 | Path | Contents | In git |

@@ -1,7 +1,11 @@
 """Phase 3: Vector store for chunk embeddings in data/index/ (Chroma, cosine distance).
 
-python -m callsearch.rag.store "customer wants a refund" -k 5 [--split test]
+python -m callsearch.rag.store "customer wants a refund" -k 5 [--split test] [--mode hybrid]
     Quick manual search. Prints call/turn ids, scores and redacted snippets.
+
+Search modes: "dense" (embeddings), "bm25" (keywords, see bm25.py) and "hybrid" (both lists
+fused with reciprocal rank fusion). The BM25 table is built in memory from the stored
+documents on first use, so it always matches the index.
 
 The collection metadata records the embedding model, so a query is always embedded
 with the model that built the index.
@@ -14,12 +18,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
+from callsearch.rag.bm25 import BM25, rrf
 from callsearch.rag.chunk import Chunk
 from callsearch.rag.embed import Embedder, SentenceTransformerEmbedder
 
 DEFAULT_INDEX_DIR = Path("data/index/chroma")
 COLLECTION = "calls"
 ADD_BATCH = 1000
+MODES = ("dense", "bm25", "hybrid")
+DEFAULT_MODE = "dense"
+FUSION_DEPTH = 50  # results taken from each list before fusing
 
 
 @dataclass(frozen=True)
@@ -39,6 +47,7 @@ class CallIndex:
         self.path = Path(path)
         self._embedder = embedder
         self._client = None
+        self._table = None  # (ids, docs, metadatas, BM25), built lazily
 
     @property
     def client(self):
@@ -76,6 +85,7 @@ class CallIndex:
             col.add(ids=[c.id for c in part], embeddings=vectors[i:i + ADD_BATCH],
                     documents=[c.text for c in part], metadatas=[c.metadata() for c in part])
         self._embedder = embedder
+        self._table = None
         return col.count()
 
     def documents(self, batch: int = 1000) -> Iterator[tuple[str, str]]:
@@ -96,14 +106,40 @@ class CallIndex:
             raise ValueError(f"index was built with {model!r}, query embedder is {self._embedder.name!r}")
         return self._embedder
 
-    def search(self, query: str, k: int = 5, split: str | None = None) -> list[Hit]:
-        col = self._collection()
-        res = col.query(query_embeddings=[self.embedder().embed_query(query)], n_results=k,
-                        where={"split": split} if split else None,
-                        include=["documents", "metadatas", "distances"])
-        return [Hit(cid, m["call_id"], m["turn_id"], m["speaker"], m["start_sec"], m["split"], doc, 1.0 - dist)
-                for cid, doc, m, dist in zip(res["ids"][0], res["documents"][0], res["metadatas"][0],
-                                             res["distances"][0])]
+    @staticmethod
+    def _hit(cid: str, doc: str, m: dict, score: float) -> Hit:
+        return Hit(cid, m["call_id"], m["turn_id"], m["speaker"], m["start_sec"], m["split"], doc, score)
+
+    def _dense(self, query: str, n: int, split: str | None) -> list[Hit]:
+        res = self._collection().query(query_embeddings=[self.embedder().embed_query(query)], n_results=n,
+                                       where={"split": split} if split else None,
+                                       include=["documents", "metadatas", "distances"])
+        return [self._hit(cid, doc, m, 1.0 - dist) for cid, doc, m, dist in
+                zip(res["ids"][0], res["documents"][0], res["metadatas"][0], res["distances"][0])]
+
+    def _bm25_table(self):
+        if self._table is None:
+            got = self._collection().get(include=["documents", "metadatas"])
+            self._table = (got["ids"], got["documents"], got["metadatas"], BM25(got["documents"]))
+        return self._table
+
+    def _bm25(self, query: str, n: int, split: str | None) -> list[Hit]:
+        ids, docs, metas, bm25 = self._bm25_table()
+        allowed = None if split is None else {i for i, m in enumerate(metas) if m["split"] == split}
+        return [self._hit(ids[i], docs[i], metas[i], s) for i, s in bm25.top(query, n, allowed)]
+
+    def search(self, query: str, k: int = 5, split: str | None = None, mode: str = DEFAULT_MODE) -> list[Hit]:
+        if mode == "dense":
+            return self._dense(query, k, split)
+        if mode == "bm25":
+            return self._bm25(query, k, split)
+        if mode != "hybrid":
+            raise ValueError(f"unknown search mode {mode!r}; known: {MODES}")
+        depth = max(k, FUSION_DEPTH)
+        dense, keyword = self._dense(query, depth, split), self._bm25(query, depth, split)
+        by_id = {h.chunk_id: h for h in keyword + dense}
+        fused = rrf([[h.chunk_id for h in dense], [h.chunk_id for h in keyword]])[:k]
+        return [Hit(**{**by_id[cid].__dict__, "score": s}) for cid, s in fused]
 
 
 def main() -> None:
@@ -111,9 +147,10 @@ def main() -> None:
     p.add_argument("query")
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--split", choices=["train", "dev", "test"])
+    p.add_argument("--mode", default=DEFAULT_MODE, choices=MODES)
     p.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
     args = p.parse_args()
-    for h in CallIndex(args.index_dir).search(args.query, args.k, args.split):
+    for h in CallIndex(args.index_dir).search(args.query, args.k, args.split, args.mode):
         print(f"{h.score:.3f}  {h.chunk_id:<14} {h.start_sec:>6.1f}s {h.speaker:<8} {h.text}")
 
 

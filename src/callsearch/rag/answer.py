@@ -129,12 +129,13 @@ def check_reply(raw: str, hits) -> tuple[str, list[int], str | None]:
 
 class Answerer:
     def __init__(self, index=None, provider=None, k: int = 5, prompt_version: str = PROMPT_VERSION,
-                 cache_dir: Path | None = CACHE_DIR):
+                 cache_dir: Path | None = CACHE_DIR, mode: str = "dense"):
         if prompt_version not in PROMPTS:
             raise KeyError(f"unknown prompt version {prompt_version!r}; known: {sorted(PROMPTS)}")
         self._index = index
         self._provider = provider
         self.k = k
+        self.mode = mode
         self.prompt_version = prompt_version
         self.cache_dir = cache_dir
         self.requests = 0
@@ -158,7 +159,7 @@ class Answerer:
 
     def provenance(self) -> dict:
         return {"provider": self.provider.name, "model": self.provider.model, "prompt_version": self.prompt_version,
-                "k": self.k}
+                "k": self.k, "retrieval": self.mode}
 
     def _complete(self, user: str) -> str:
         p = self.provider
@@ -175,7 +176,7 @@ class Answerer:
         return raw
 
     def ask(self, question: str, split: str | None = None) -> Answer:
-        hits = self.index.search(question, k=self.k, split=split)
+        hits = self.index.search(question, k=self.k, split=split, mode=self.mode)
         retrieved = [h.chunk_id for h in hits]
         if not hits:
             return Answer(question, NOT_FOUND, False, [], retrieved, "nothing retrieved", self.provenance())
@@ -191,10 +192,11 @@ def main() -> None:
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--split", choices=["train", "dev", "test"])
     p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS))
+    p.add_argument("--mode", default="dense", choices=["dense", "bm25", "hybrid"], help="retrieval mode")
     p.add_argument("--json", action="store_true", help="print the full answer record as JSON")
     args = p.parse_args()
 
-    a = Answerer(k=args.k, prompt_version=args.prompt).ask(args.question, args.split)
+    a = Answerer(k=args.k, prompt_version=args.prompt, mode=args.mode).ask(args.question, args.split)
     if args.json:
         print(json.dumps(a.to_dict(), indent=2))
         return
@@ -204,7 +206,8 @@ def main() -> None:
     for c in a.citations:
         print(f"  [{c.chunk_id} {c.start_sec:.0f}s {c.speaker}] {c.snippet}")
     pv = a.provenance
-    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, retrieved {len(a.retrieved)}")
+    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, {pv['retrieval']} retrieval, "
+          f"retrieved {len(a.retrieved)}")
 
 
 if __name__ == "__main__":
