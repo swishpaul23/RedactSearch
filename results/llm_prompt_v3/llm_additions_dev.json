@@ -1,0 +1,53 @@
+{
+  "split": "dev",
+  "detector": "pipeline_llm",
+  "added": 66,
+  "correct": 12,
+  "overlaps_label": 2,
+  "distractor": 0,
+  "false": 52,
+  "by_type": {
+    "PERSON": {
+      "correct": 12,
+      "overlaps_label": 2,
+      "distractor": 0,
+      "false": 52
+    },
+    "EMAIL": {
+      "correct": 0,
+      "overlaps_label": 0,
+      "distractor": 0,
+      "false": 0
+    },
+    "PHONE": {
+      "correct": 0,
+      "overlaps_label": 0,
+      "distractor": 0,
+      "false": 0
+    },
+    "CARD": {
+      "correct": 0,
+      "overlaps_label": 0,
+      "distractor": 0,
+      "false": 0
+    },
+    "SIN": {
+      "correct": 0,
+      "overlaps_label": 0,
+      "distractor": 0,
+      "false": 0
+    },
+    "ACCOUNT": {
+      "correct": 0,
+      "overlaps_label": 0,
+      "distractor": 0,
+      "false": 0
+    }
+  },
+  "provider": "ollama",
+  "model": "qwen2:7b",
+  "prompt_version": "v3",
+  "requests": 0,
+  "cache_hits": 774,
+  "parse_failures": 0
+}

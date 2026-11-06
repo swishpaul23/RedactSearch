@@ -322,7 +322,7 @@ def test_anthropic_provider_with_mocked_client(monkeypatch):
     p = AnthropicProvider(client=NS(messages=Msgs()))
     assert p.model == "claude-haiku-5-5"
     assert p.complete("SYS", "hi") == '{"spans": []}'
-    assert seen["temperature"] == 0 and seen["system"] == "SYS" and seen["model"] == "claude-haiku-5-5"
+    assert "temperature" not in seen and seen["system"] == "SYS" and seen["model"] == "claude-haiku-5-5"
     assert (p.usage.input_tokens, p.usage.output_tokens) == (10, 3)
 
 
@@ -370,6 +370,24 @@ def test_anthropic_environment_wins_over_dotenv(monkeypatch, tmp_path):
     env.write_text("CALLSEARCH_LLM_MODEL=from-dotenv\n", encoding="utf-8")
     monkeypatch.setenv("CALLSEARCH_LLM_MODEL", "from-env")
     assert AnthropicProvider(env_file=env).model == "from-env"
+
+
+def test_anthropic_workspace_header_from_dotenv(monkeypatch, tmp_path):
+    import anthropic
+
+    from callsearch.redact.llm import AnthropicProvider
+
+    for v in ("ANTHROPIC_API_KEY", "ANTHROPIC_WORKSPACE_ID"):
+        monkeypatch.delenv(v, raising=False)
+    env = tmp_path / ".env"
+    env.write_text(f"ANTHROPIC_API_KEY={FAKE_KEY}\nANTHROPIC_WORKSPACE_ID=wrkspc_test\n", encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: seen.update(kw) or object())
+    AnthropicProvider(env_file=env).client
+    assert seen["default_headers"] == {"anthropic-workspace-id": "wrkspc_test"}
+    env.write_text(f"ANTHROPIC_API_KEY={FAKE_KEY}\n", encoding="utf-8")
+    AnthropicProvider(env_file=env).client
+    assert seen["default_headers"] is None
 
 
 def test_dotenv_read_only_inside_anthropic_provider():

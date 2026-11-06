@@ -155,8 +155,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 class AnthropicProvider:
     """Claude via the Anthropic SDK.
 
-    ANTHROPIC_API_KEY and CALLSEARCH_LLM_MODEL come from the environment, or else from the
-    repo-root .env (gitignored). The .env is read only here, only those two names, and without
+    ANTHROPIC_API_KEY, ANTHROPIC_WORKSPACE_ID (needed when the key is not scoped to a workspace)
+    and CALLSEARCH_LLM_MODEL come from the environment, or else from the repo-root .env
+    (gitignored). The .env is read only here, only those names, and without
     touching os.environ. The key goes straight to the SDK client: never stored on this object,
     printed or logged.
     """
@@ -177,8 +178,8 @@ class AnthropicProvider:
         self.price_out = float(os.environ.get("CALLSEARCH_LLM_PRICE_OUT", "5.0"))
 
     def _setting(self, name: str) -> str | None:
-        """Environment first, then .env. Only ANTHROPIC_API_KEY / CALLSEARCH_LLM_MODEL are read."""
-        assert name in ("ANTHROPIC_API_KEY", "CALLSEARCH_LLM_MODEL")
+        """Environment first, then .env. Only these three names are ever read."""
+        assert name in ("ANTHROPIC_API_KEY", "ANTHROPIC_WORKSPACE_ID", "CALLSEARCH_LLM_MODEL")
         if os.environ.get(name):
             return os.environ[name]
         if self.env_file.exists():
@@ -198,12 +199,16 @@ class AnthropicProvider:
                 raise RuntimeError("ANTHROPIC_API_KEY is not set (environment or repo-root .env; never commit it)")
             import anthropic
 
-            self._client = anthropic.Anthropic(api_key=key, max_retries=5)
+            workspace = self._setting("ANTHROPIC_WORKSPACE_ID")
+            headers = {"anthropic-workspace-id": workspace} if workspace else None
+            self._client = anthropic.Anthropic(api_key=key, max_retries=5, default_headers=headers)
         return self._client
 
     def complete(self, system: str, user: str) -> str:
+        # No temperature: anthropic SDK 1.15 no longer accepts sampling parameters. Reruns are
+        # reproducible through the reply cache, not through sampling settings.
         msg = self.client.messages.create(
-            model=self.model, max_tokens=self.max_tokens, temperature=0, system=system,
+            model=self.model, max_tokens=self.max_tokens, system=system,
             messages=[{"role": "user", "content": user}])
         self.usage.add(msg.usage.input_tokens, msg.usage.output_tokens)
         return "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
@@ -620,6 +625,7 @@ def main() -> None:
     p.add_argument("--llm-prompt", choices=sorted(PROMPTS), help="default: the provider's default prompt")
     p.add_argument("--show-false", type=int, default=0, metavar="N",
                    help="also print N false PERSON additions with context (synthetic text; not saved)")
+    p.add_argument("--out", type=Path, help="results path (default: results/llm_additions_<split>.json)")
     args = p.parse_args()
 
     calls = [c for c in read_jsonl(args.data) if args.split == "all" or c["split"] == args.split]
@@ -634,7 +640,7 @@ def main() -> None:
         print(f"\nFALSE PERSON ADDITIONS: {len(samples)} total, showing {min(len(samples), args.show_false)}")
         for where, snip in samples[:args.show_false]:
             print(f"  {where:<34} {snip}")
-    out = Path("results") / f"llm_additions_{args.split}.json"
+    out = args.out or Path("results") / f"llm_additions_{args.split}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=2) + "\n", encoding="utf-8")
     print(f"Saved {out}")

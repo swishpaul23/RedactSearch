@@ -102,11 +102,13 @@ python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false
 | pipeline (regex + ner) | none | none | 0.933 | 0.909 | 9.1% |
 | pipeline_llm | `ollama:qwen2:7b` | v1 | 0.839 | 0.981 | 1.9% |
 | pipeline_llm | `ollama:qwen2:7b` | v2 | 0.640 | 0.994 | 0.6% |
+| pipeline_llm | `ollama:qwen2:7b` | v3 | 0.704 | 0.987 | 1.3% |
 
 - **Structured types and distractors:** in every row they are identical to `pipeline` (100% and 0 false positives).
 - **v2 vs v1:** v2 finds 2 more names but adds 57 more false positives, mostly places, restaurants and words next to placeholders. That is why Ollama defaults to v1.
-- **Not evaluated yet:** v3 and the Claude provider.
-- **Results files:** v1 results are archived in `results/llm_prompt_v1/`.
+- **v3 vs v1:** v3 finds 1 more name but adds 35 more false positives (64 vs 29). Many false hits echo words the prompt tells the model to avoid (`applicant's`), plus pronouns (`I`, `you`), titles (`Mr.`) and restaurant names. On `qwen2:7b`, listing what not to return made the model return it. Ollama keeps v1.
+- **Not evaluated yet:** the Claude provider.
+- **Results files:** v1 results are archived in `results/llm_prompt_v1/` and v3 results in `results/llm_prompt_v3/`.
 
 - **`pipeline_llm`**: regex + ner first. The LLM then sees each turn with those spans already masked (`[CARD]`, `[PERSON]`, ...) and lists any names still visible. Its spans are only **added**; base spans are never removed. **`llm`** is the LLM alone, for ablation (it sees the turn unmasked).
 - **PERSON only.** Regex is exact on the structured types. On dev, every EMAIL/PHONE/CARD/SIN/ACCOUNT span the LLM added was a false positive, including all 23 distractor hits. So only PERSON spans are kept, through a post-filter that applies to every prompt version.
@@ -130,10 +132,10 @@ python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false
 
   | `CALLSEARCH_LLM_PROVIDER` | Model setting | Key / host |
   |---|---|---|
-  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`, in the environment or the repo-root `.env` (gitignored). Only the provider reads `.env`, and only that key and the model name. The key is never printed, logged or committed. |
+  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`, in the environment or the repo-root `.env` (gitignored). If the key isn't scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` (sent as the `anthropic-workspace-id` header). Only the provider reads `.env`, and only these names and the model name. The key is never printed, logged or committed. |
   | `ollama` (local) | `CALLSEARCH_OLLAMA_MODEL` | host from `OLLAMA_HOST` |
 
-  Both run at temperature 0.
+  Ollama runs at temperature 0. The anthropic SDK (1.15) no longer accepts sampling parameters, so Claude runs use the API default. Reruns are reproducible through the reply cache.
 - **Cache:** replies are cached in `.cache/llm/` (gitignored), keyed by provider + model + prompt version + masked text. Re-running an eval is free and reproducible.
 - **Cost:**
   - `--dry-run` prints requests and estimated tokens without calling the model.
