@@ -170,13 +170,33 @@ python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false
   - A real run prints requests made, cache hits, parse failures, tokens and estimated cost. Prices come from `CALLSEARCH_LLM_PRICE_IN` / `_OUT` (USD per million tokens), defaulting to 1 / 5.
 - **Privacy:** only text already masked by regex + ner is sent, and all of it is synthetic. In a real deployment that text would still leave the machine for a hosted API, and anything the first two layers missed would go with it. That is why the provider interface also supports a local Ollama model.
 
+## Search index (Phase 3)
+
+```powershell
+python -m callsearch.redact.export --detector pipeline_hf   # raw -> data/redacted/ + manifest
+python scripts/build_index.py --model bge-small --context-turns 1
+python -m callsearch.rag.guard                              # -> results/index_guard.json
+python -m callsearch.rag.store "customer wants a refund" -k 5
+```
+
+- **Redaction boundary:** `callsearch.redact.export` runs a detector over every turn and writes `data/redacted/calls.jsonl`. It keeps only the call id, split, source, speaker, start time and redacted text. Labels, distractors and template ids are dropped. `manifest.json` records the detector and the file's sha256.
+- **Index builder:** `build_index.py` reads `data/redacted/` only and never opens `data/raw/`. It refuses to run if the manifest is missing, does not mark the file as redacted, or the hash does not match. Before writing anything, it runs the regex layer over every chunk and refuses to build if it finds structured PII.
+- **Chunks:** one chunk per speaker turn, with id `<call_id>:<turn_id>` and the speaker, start time, split and source as metadata. The embedded text includes the previous turn (`--context-turns 1`), so a short reply like "yes, that one" keeps what it answers. The stored and displayed text is the turn alone.
+- **Embeddings:** sentence-transformers, `BAAI/bge-small-en-v1.5` by default (`--model minilm` for `all-MiniLM-L6-v2`). Vectors are normalised, and queries get BGE's search prefix. The collection records the model, so queries always use the model that built the index.
+- **Store:** Chroma, persistent in `data/index/chroma/`, with cosine distance. Rebuilding replaces the collection.
+- **Index guard** (`callsearch.rag.guard`):
+  1. A pattern scan of every stored document with the regex layer. On a regex-based redactor this is a check against bugs and hand edits, not an independent detector.
+  2. A planted-value scan: every labeled value from `data/raw/` is looked up verbatim in the stored text of its own turn. This is the same leak test `redaction_eval` uses, applied to what is actually in the index. It is evaluation-only and the one place outside the eval scripts that reads raw data.
+
+  Structured leaks always fail. Leaked names fail unless `--allow-person-leaks` is passed, and the count is saved either way. `test_built_index_has_no_structured_pii` re-runs the pattern scan on the built index whenever one exists.
+
 ## Data and results layout
 
 | Path | Contents | In git |
 |---|---|---|
 | `data/raw/` | Generated calls with PII, plus downloaded MultiWOZ | No (gitignored) |
-| `data/redacted/` | Redacted transcripts only. The index builder reads from here. | Yes |
-| `data/index/` | Vector index built from redacted text | Yes |
+| `data/redacted/` | Redacted transcripts plus `manifest.json`. The index builder reads from here only. | No (rebuilt by `callsearch.redact.export`) |
+| `data/index/` | Chroma index built from redacted text | No (binary; rebuilt by `scripts/build_index.py`) |
 | `models/` | Trained models | No (gitignored) |
 | `.cache/llm/` | Cached LLM replies | No (gitignored) |
 | `results/` | Eval and training metrics only (counts, rates, type names), never transcript text. A test enforces this. | Yes |

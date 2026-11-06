@@ -19,6 +19,12 @@ class PipelineDetector:
     def detect(self, text: str) -> list[Span]:
         return resolve_overlaps([s for d in self.detectors for s in d.detect(text)])
 
+    def detect_batch(self, texts: list[str]) -> list[list[Span]]:
+        """Same as detect() per text; layers with detect_batch (the HF model) run batched."""
+        per_layer = [d.detect_batch(texts) if hasattr(d, "detect_batch") else [d.detect(t) for t in texts]
+                     for d in self.detectors]
+        return [resolve_overlaps([s for layer in per_layer for s in layer[i]]) for i in range(len(texts))]
+
 
 class PipelineHFDetector(PipelineDetector):
     """regex + the DistilBERT NER (ner_hf) instead of spaCy, for the NER comparison."""

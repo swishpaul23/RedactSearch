@@ -156,7 +156,7 @@ def test_results_dir_has_only_known_files():
     """results/ (including archived subfolders like v1/) holds only metric files."""
     files = [p for p in RESULTS.rglob("*") if p.is_file()]
     ok = lambda p: (p.suffix == ".json" and p.name.startswith(("eval_", "train_", "presidio_extras_",
-                                                               "llm_additions_"))) or (
+                                                               "llm_additions_", "index_guard"))) or (
         p.suffix == ".md" and p.name.startswith("comparison_"))
     assert all(ok(p) for p in files), files
 
@@ -216,3 +216,19 @@ def test_cli_json_override_and_no_save(monkeypatch, tmp_path):
     (tmp_path / "custom.json").unlink()
     _run_cli(monkeypatch, tmp_path, "--no-save")
     assert not (tmp_path / "custom.json").exists() and not (tmp_path / "results").exists()
+
+
+GUARD_KEYS = {"detector", "embed_model", "n_chunks", "pattern_hits", "planted_leaks", "planted_support",
+              "planted_leaks_by_split", "labels_without_chunk", "allow_person_leaks", "passed"}
+
+
+@pytest.mark.parametrize("path", sorted(RESULTS.rglob("index_guard*.json")), ids=lambda p: p.name)
+def test_index_guard_is_metrics_only(path):
+    res = json.loads(path.read_text(encoding="utf-8"))
+    assert set(res) == GUARD_KEYS
+    assert re.match(r"^[a-z_]+$", res["detector"]) and re.match(r"^[\w.\-]+$", res["embed_model"])
+    assert type(res["passed"]) is bool and type(res["allow_person_leaks"]) is bool
+    for key in ("pattern_hits", "planted_leaks", "planted_support"):
+        assert all(TYPE_NAME.match(t) and type(v) is int for t, v in res[key].items())
+    for split, counts in res["planted_leaks_by_split"].items():
+        assert split in {"train", "dev", "test"} and all(TYPE_NAME.match(t) and type(v) is int for t, v in counts.items())

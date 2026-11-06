@@ -6,3 +6,7 @@ data/raw/
 *.egg-info/
 models/
 .cache/
+data/redacted/*
+!data/redacted/.gitkeep
+data/index/*
+!data/index/.gitkeep
