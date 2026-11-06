@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from callsearch.rag.bm25 import BM25, rrf
+from collections import Counter
+
+from callsearch.rag.bm25 import BM25, rrf, terms
 from callsearch.rag.chunk import Chunk
 from callsearch.rag.embed import Embedder, SentenceTransformerEmbedder
 
@@ -48,6 +50,7 @@ class CallIndex:
         self._embedder = embedder
         self._client = None
         self._table = None  # (ids, docs, metadatas, BM25), built lazily
+        self._df = None     # term -> number of stored chunks containing it (grounding check)
 
     @property
     def client(self):
@@ -85,7 +88,7 @@ class CallIndex:
             col.add(ids=[c.id for c in part], embeddings=vectors[i:i + ADD_BATCH],
                     documents=[c.text for c in part], metadatas=[c.metadata() for c in part])
         self._embedder = embedder
-        self._table = None
+        self._table = self._df = None
         return col.count()
 
     def documents(self, batch: int = 1000) -> Iterator[tuple[str, str]]:
@@ -122,6 +125,13 @@ class CallIndex:
             got = self._collection().get(include=["documents", "metadatas"])
             self._table = (got["ids"], got["documents"], got["metadatas"], BM25(got["documents"]))
         return self._table
+
+    def doc_freq(self) -> Counter:
+        """How many stored chunks contain each term (bm25.terms), for the answer grounding check."""
+        if self._df is None:
+            _, docs, _, _ = self._bm25_table()
+            self._df = Counter(t for d in docs for t in set(terms(d)))
+        return self._df
 
     def _bm25(self, query: str, n: int, split: str | None) -> list[Hit]:
         ids, docs, metas, bm25 = self._bm25_table()

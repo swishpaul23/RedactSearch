@@ -28,6 +28,11 @@ def tokenize(text: str) -> list[str]:
     return [t for t in TOKEN.findall(PLACEHOLDER.sub(" ", text).lower()) if t not in STOPWORDS]
 
 
+def terms(text: str) -> list[str]:
+    """tokenize() with possessives folded ("college's" -> "college"), for the grounding check."""
+    return [t[:-2] if t.endswith("'s") else t for t in tokenize(text)]
+
+
 class BM25:
     def __init__(self, docs: list[str], k1: float = 1.5, b: float = 0.75):
         self.k1, self.b = k1, b

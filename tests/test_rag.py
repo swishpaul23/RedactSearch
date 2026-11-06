@@ -298,3 +298,11 @@ def test_with_neighbors_returns_ordered_windows(built):
     first = index.turns(["call_9002:0"])["call_9002:0"]
     assert [w.chunk_id for w in index.with_neighbors([first], 2)[0]] == ["call_9002:0", "call_9002:1"]
     assert index.turns([]) == {} and index.turns(["call_9999:0"]) == {}
+
+
+def test_doc_freq_counts_chunks_and_folds_possessives(built):
+    from callsearch.rag.store import CallIndex
+
+    tmp_path, _ = built
+    df = CallIndex(tmp_path / "idx", embedder=FakeEmbedder()).doc_freq()
+    assert df["hello"] == 1 and df["refund"] == 1 and df.get("sauna", 0) == 0

@@ -206,8 +206,9 @@ python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--mo
 1. The top `k` chunks come from the index. They are already redacted, and nothing else ever goes into the prompt.
 2. The model sees them as numbered excerpts (call id, turn, speaker, time, text). It must answer from them only, cite the excerpt numbers it used, treat placeholders as removed data, and reply `NOT_FOUND` when the excerpts do not answer the question.
 3. **Server check:** the reply must parse as JSON, cite at least one excerpt, and cite only excerpts that were retrieved. A reply that fails any of these is discarded, returned as `NOT_FOUND`, and the reason is recorded in `rejected`. A model that says `NOT_FOUND` is a valid outcome, not a rejection.
-4. With `--neighbors n`, each excerpt also shows the `n` turns before and after the matched turn, with the matched turn marked. An answer often sits in the reply to the turn that matched. For example, the customer's turn names the restaurant and the agent's next turn gives the price. Citations still point at matched turns.
-5. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
+4. **Grounding check** (on by default, `--no-grounding` to skip): every rare content word of the question must appear in the excerpts the answer cites. "Rare" means it occurs in at most 0.1% of stored chunks: venue names, ids, times and unusual nouns such as "sauna" or "ferry", but not "hotel" or "train". A question word that occurs in no chunk at all cannot be supported by any excerpt, so the answer is `NOT_FOUND` without calling the model. This was added because `qwen2:7b` ignored instructions to abstain (prompt v2 made no difference). On dev, 7 of 8 unanswerable questions got invented answers ("Warkworth House offers a sauna") or claims about all calls based on 5 excerpts ("No one asked about a ferry"). In each case the question's key word was missing from the cited excerpt. The 0.1% threshold was chosen on dev.
+5. With `--neighbors n`, each excerpt also shows the `n` turns before and after the matched turn, with the matched turn marked. An answer often sits in the reply to the turn that matched. For example, the customer's turn names the restaurant and the agent's next turn gives the price. Citations still point at matched turns.
+6. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
 
 The provider is the one the LLM redaction layer uses (`CALLSEARCH_LLM_PROVIDER`), so Claude and a local Ollama model are interchangeable. Replies are cached in `.cache/answers/`, keyed by provider, model, prompt version, question and retrieved chunks, so eval reruns are free. Prompts are versioned in `PROMPTS` like the redaction prompts.
 
@@ -245,9 +246,11 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 | dense | 1 | 0.657 | 0.629 | 0.629 | 0.686 | 0.250 |
 | **bm25** | **1** | **0.914** | **0.714** | **0.771** | **0.686** | 0.125 |
 | hybrid | 1 | 0.771 | 0.657 | 0.686 | 0.657 | 0.125 |
+| **bm25 + grounding check** | **1** | **0.914** | **0.714** | **0.714** | **0.629** | **1.000** |
 
 - BM25 finds the right call most often. Neighbouring turns then let the model see the answer, which is usually in the reply to the matched turn.
-- With more context, the v1 prompt almost never says NOT_FOUND on unanswerable questions (1 of 8). Prompt v2 makes the model check that an excerpt matches every detail in the question before answering.
+- With more context, the v1 prompt almost never says NOT_FOUND on unanswerable questions (1 of 8). Prompt v2, which tells the model to check every detail first, changed nothing (1 of 8) and lost 2 correct answers, so v1 stays.
+- The grounding check (default) turns all 8 unanswerable questions into NOT_FOUND. It also turns 5 answerable ones into NOT_FOUND: 3 of those answers cited the wrong call anyway, 1 question names a surname the redactor masked, and 1 is a real loss (`dev_a26`: the venue name is two turns before the answer, outside the one-turn window). When the system answers, it is right 25 of 27 times (93%), against 27 of 32 (84%) without the check.
 - **Caveats:** the dev set has 35 + 8 questions, so one question moves a rate by 3 or 12.5 points. The questions also name exact details (train ids, reference numbers), which favours keyword search; vaguer real-world questions may favour dense or hybrid.
 
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.

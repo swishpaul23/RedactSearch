@@ -148,6 +148,7 @@ def main() -> None:
     p.add_argument("--neighbors", type=int, default=DEFAULT_NEIGHBORS,
                    help="turns shown before and after each matched turn")
     p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS), help="answer prompt version")
+    p.add_argument("--no-grounding", action="store_true", help="skip the rare-word grounding check")
     p.add_argument("--index-dir", type=Path, default=DEFAULT_INDEX_DIR)
     p.add_argument("--json", type=Path, help="default: results/rag_eval_<split>[_<mode>][_n<neighbors>]"
                                              "[_<prompt>][_retrieval].json (no suffix for dense, 0 or v1)")
@@ -161,7 +162,8 @@ def main() -> None:
         sys.exit(1)
 
     answerer = None if args.retrieval_only else Answerer(index=index, k=args.k, mode=args.mode,
-                                                          neighbors=args.neighbors, prompt_version=args.prompt)
+                                                          neighbors=args.neighbors, prompt_version=args.prompt,
+                                                          grounding=not args.no_grounding)
     metrics, rows = run(questions, index, answerer, args.k, args.mode, args.neighbors)
     info = index.info
     res = {"split": args.split, "k": args.k, "retrieval": args.mode, "neighbors": args.neighbors, "index": {key: info.get(key) for key in
@@ -186,6 +188,7 @@ def main() -> None:
         print(f"  not in top {args.k}: {', '.join(missed)}")
     suffix = (("" if args.mode == "dense" else f"_{args.mode}") + (f"_n{args.neighbors}" if args.neighbors else "")
               + ("" if args.prompt == "v1" or args.retrieval_only else f"_{args.prompt}")
+              + ("_nogrounding" if args.no_grounding and not args.retrieval_only else "")
               + ("_retrieval" if args.retrieval_only else ""))
     out = args.json or Path("results") / f"rag_eval_{args.split}{suffix}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
