@@ -1,7 +1,7 @@
 variable "region" {
-  description = "AWS region for every resource. Canada (Central) keeps the transcripts in Canada."
+  description = "AWS region for every resource (US West, Oregon)."
   type        = string
-  default     = "ca-central-1"
+  default     = "us-west-2"
 }
 
 variable "project" {

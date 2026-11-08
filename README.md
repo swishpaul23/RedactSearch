@@ -286,7 +286,7 @@ data/upload/*.jsonl ──aws s3 cp──► s3://callsearch-raw-<id>/incoming/ 
                                    data/redacted/ ──► scripts/build_index.py
 ```
 
-- **Infrastructure** (`infra/terraform/`, region `ca-central-1`): two private buckets with public access blocked and TLS-only policies. The raw bucket uses KMS encryption (the AWS-managed `aws/s3` key) and expires objects after 7 days; the redacted bucket uses SSE-S3. Also an ECR repository, the Lambda and its IAM role, the S3 trigger, a CloudWatch log group (14 days) and a monthly budget alarm by email.
+- **Infrastructure** (`infra/terraform/`, region `us-west-2`): two private buckets with public access blocked and TLS-only policies. The raw bucket uses KMS encryption (the AWS-managed `aws/s3` key) and expires objects after 7 days; the redacted bucket uses SSE-S3. Also an ECR repository, the Lambda and its IAM role, the S3 trigger, a CloudWatch log group (14 days) and a monthly budget alarm by email.
 - **Least privilege:** the Lambda can read `incoming/*` from the raw bucket and write `redacted/*` to the redacted bucket, and nothing else.
 - **What leaves your machine:** `scripts/split_calls.py` strips labels and distractors, so only what a real transcript would contain is uploaded. The Docker build context is an allow-list (`.dockerignore`): `pyproject.toml`, `src/` and `models/ner_distilbert/` only, never data or `.env`.
 - **Same code as local:** the handler calls the same `redact_calls()` as `callsearch.redact.export`. Logs carry keys and counts, never transcript text.
@@ -301,7 +301,7 @@ terraform init; terraform validate
 terraform apply                                       # 1st pass: buckets, ECR, IAM, budget (no Lambda yet)
 $ECR = terraform output -raw ecr_repository_url
 cd ../..
-aws ecr get-login-password --region ca-central-1 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
 docker build -f Dockerfile.lambda --platform linux/amd64 --provenance=false -t "${ECR}:v1" .
 docker push "${ECR}:v1"
 cd infra/terraform; terraform apply -var image_tag=v1; cd ../..   # 2nd pass: Lambda + trigger
