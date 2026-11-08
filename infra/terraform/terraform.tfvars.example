@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+alert_email = "you@example.com"
+
+# Leave empty for the first apply. After pushing the image, set it to that tag and apply again.
+image_tag = ""
+
+# region             = "ca-central-1"
+# monthly_budget_usd = 5
+# raw_retention_days = 7

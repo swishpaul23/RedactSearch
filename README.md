@@ -271,6 +271,54 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
 
+## AWS: S3 + Lambda redaction (optional)
+
+```text
+data/upload/*.jsonl ──aws s3 cp──► s3://callsearch-raw-<id>/incoming/      (KMS-encrypted, deleted after 7 days)
+                                        │ s3:ObjectCreated (*.jsonl)
+                                        ▼
+                                   Lambda callsearch-redact  (container image: regex + DistilBERT)
+                                        │
+                                        ▼
+                                   s3://callsearch-redacted-<id>/redacted/<batch>.jsonl + .manifest.json
+                                        │ scripts/pull_redacted.py (verifies every sha256)
+                                        ▼
+                                   data/redacted/ ──► scripts/build_index.py
+```
+
+- **Infrastructure** (`infra/terraform/`, region `ca-central-1`): two private buckets with public access blocked and TLS-only policies. The raw bucket uses KMS encryption (the AWS-managed `aws/s3` key) and expires objects after 7 days; the redacted bucket uses SSE-S3. Also an ECR repository, the Lambda and its IAM role, the S3 trigger, a CloudWatch log group (14 days) and a monthly budget alarm by email.
+- **Least privilege:** the Lambda can read `incoming/*` from the raw bucket and write `redacted/*` to the redacted bucket, and nothing else.
+- **What leaves your machine:** `scripts/split_calls.py` strips labels and distractors, so only what a real transcript would contain is uploaded. The Docker build context is an allow-list (`.dockerignore`): `pyproject.toml`, `src/` and `models/ner_distilbert/` only, never data or `.env`.
+- **Same code as local:** the handler calls the same `redact_calls()` as `callsearch.redact.export`. Logs carry keys and counts, never transcript text.
+- **Image:** `public.ecr.aws/lambda/python:3.12` with CPU-only torch and the fine-tuned model baked in (no downloads at run time). It is a container image because torch and the model are far over Lambda's zip limit.
+
+**Deploy** (PowerShell, from the repo root, with the AWS CLI logged in and Docker running):
+
+```powershell
+cd infra/terraform
+copy terraform.tfvars.example terraform.tfvars        # set alert_email
+terraform init; terraform validate
+terraform apply                                       # 1st pass: buckets, ECR, IAM, budget (no Lambda yet)
+$ECR = terraform output -raw ecr_repository_url
+cd ../..
+aws ecr get-login-password --region ca-central-1 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
+docker build -f Dockerfile.lambda --platform linux/amd64 --provenance=false -t "${ECR}:v1" .
+docker push "${ECR}:v1"
+cd infra/terraform; terraform apply -var image_tag=v1; cd ../..   # 2nd pass: Lambda + trigger
+```
+
+**Run:**
+
+```powershell
+python scripts/split_calls.py --per-file 25
+aws s3 cp data/upload "s3://$(terraform -chdir=infra/terraform output -raw raw_bucket)/incoming/" --recursive
+aws logs tail /aws/lambda/callsearch-redact --follow
+python scripts/pull_redacted.py --bucket "$(terraform -chdir=infra/terraform output -raw redacted_bucket)"
+python scripts/build_index.py; python -m callsearch.rag.guard --allow-person-leaks
+```
+
+**Cost:** S3, Lambda and the AWS-managed KMS key cost cents at this scale. The main standing cost is ECR storage for the image (roughly 2 GB). The budget alarm emails at 80% of $5. `terraform destroy` removes everything, including both buckets and their contents.
+
 ## Data and results layout
 
 | Path | Contents | In git |
