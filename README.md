@@ -253,6 +253,22 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 - The grounding check (default) turns all 8 unanswerable questions into NOT_FOUND. It also turns 5 answerable ones into NOT_FOUND: 3 of those answers cited the wrong call anyway, 1 question names a surname the redactor masked, and 1 is a real loss (`dev_a26`: the venue name is two turns before the answer, outside the one-turn window). When the system answers, it is right 25 of 27 times (93%), against 27 of 32 (84%) without the check.
 - **Caveats:** the dev set has 35 + 8 questions, so one question moves a rate by 3 or 12.5 points. The questions also name exact details (train ids, reference numbers), which favours keyword search; vaguer real-world questions may favour dense or hybrid.
 
+**Test results** (run once, with the setup chosen on dev: bm25, 1 neighbour, prompt v1, grounding check, `qwen2:7b`, k 5):
+
+| metric | dev | test |
+|---|---:|---:|
+| recall@5 | 0.914 | 0.818 |
+| turn_shown@5 | 0.714 | 0.591 |
+| citation_accuracy | 0.714 | 0.636 (28/44) |
+| answer_term_match | 0.629 | 0.477 (21/44) |
+| false_not_found | 0.229 | 0.227 |
+| abstention_rate | 1.000 | 1.000 (10/10) |
+| answers citing the right call, of those given | 25/27 (93%) | 28/34 (82%) |
+
+- Test is lower than dev on every answerable metric. That is the usual cost of choosing the setup on dev, with small sets (one test question is 2.3 points).
+- Abstention held at 10 of 10, so the grounding check generalises to unseen unanswerable questions.
+- `answer_term_match` is a plain string check. 7 answers cite the right call but miss the expected string, and some of those may be correct in other words (an LLM judge is planned). The score should be read as a lower bound.
+
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
 
 ## Data and results layout
