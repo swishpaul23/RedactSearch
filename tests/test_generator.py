@@ -1,17 +1,20 @@
-"""Tests for the synthetic data layer: label offsets, checksums, determinism, splits, leakage."""
+"""Tests for the synthetic data layer: label offsets, checksums, determinism, splits, noise, leakage."""
 
+import itertools
 import json
 import random
 import re
 
 import pytest
 
-from callsearch.data.generator import generate_calls
-from callsearch.data.templates import TEST_TEMPLATES, TRAIN_TEMPLATES
+from callsearch.data.generator import SPLITS, TEMPLATES, generate_calls
+from callsearch.data.templates import INJECTIONS
+from callsearch.data.values import NAME_STYLES
 from callsearch.validators import luhn_ok, make_luhn_number, make_non_luhn_number, make_sin, sin_ok
 
-N, SEED = 120, 7
+N, SEED = 200, 7
 DIGITS = re.compile(r"\D")
+PAIRS = list(itertools.combinations(SPLITS, 2))
 
 
 @pytest.fixture(scope="module")
@@ -50,6 +53,7 @@ def test_generators_respect_checksums():
 # --- generated calls ----------------------------------------------------------
 
 def test_label_offsets_match_values(calls):
+    """Holds for noisy calls too: value is the exact slice of the transformed text."""
     for c in calls:
         for span in c["labels"] + c["distractors"]:
             text = c["turns"][span["turn_id"]]["text"]
@@ -90,7 +94,7 @@ def test_account_has_context_word(calls):
 
 
 def test_all_types_present(calls):
-    for split in ("train", "test"):
+    for split in SPLITS:
         types = {l["type"] for c in calls if c["split"] == split for l in c["labels"]}
         assert types == {"PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"}, split
 
@@ -101,21 +105,88 @@ def test_same_seed_identical(calls):
     assert json.dumps(generate_calls(n=N, seed=SEED + 1)) != json.dumps(calls)
 
 
-def test_splits_disjoint(calls):
-    by_split = {s: {(c["source"], c["source_id"]) for c in calls if c["split"] == s} for s in ("train", "test")}
-    assert not by_split["train"] & by_split["test"]
-    assert {c["template"] for c in calls if c["split"] == "train"} - {None} <= {t.id for t in TRAIN_TEMPLATES}
-    assert {c["template"] for c in calls if c["split"] == "test"} - {None} <= {t.id for t in TEST_TEMPLATES}
+def test_split_and_source_mix(calls):
+    by_split = {s: sum(c["split"] == s for c in calls) for s in SPLITS}
+    assert by_split == {"train": 120, "dev": 30, "test": 50}
+    n_mw = sum(c["source"] == "multiwoz" for c in calls)
+    assert abs(n_mw / N - 0.6) < 0.02
+
+
+# --- split disjointness -------------------------------------------------------
+
+def test_splits_disjoint_in_source_id(calls):
+    ids = {s: {(c["source"], c["source_id"]) for c in calls if c["split"] == s} for s in SPLITS}
+    for a, b in PAIRS:
+        assert not ids[a] & ids[b], (a, b)
     mw_ids = [c["source_id"] for c in calls if c["source"] == "multiwoz"]
     assert len(mw_ids) == len(set(mw_ids))  # each dialogue used at most once
 
 
-def test_split_and_source_mix(calls):
-    n_test = sum(c["split"] == "test" for c in calls)
-    n_mw = sum(c["source"] == "multiwoz" for c in calls)
-    assert abs(n_test / N - 0.3) < 0.02
-    assert abs(n_mw / N - 0.6) < 0.02
+def test_calls_use_their_own_split_templates(calls):
+    for s in SPLITS:
+        used = {c["template"] for c in calls if c["split"] == s} - {None}
+        assert used <= {t.id for t in TEMPLATES[s]}, s
 
+
+def _norm(line: str) -> str:
+    return " ".join(re.findall(r"[\w{}']+", line.lower()))
+
+
+def test_template_pools_disjoint():
+    assert len(TEMPLATES["train"]) >= 12 and len(TEMPLATES["dev"]) >= 5 and len(TEMPLATES["test"]) >= 5
+    for a, b in PAIRS:
+        assert not {t.id for t in TEMPLATES[a]} & {t.id for t in TEMPLATES[b]}
+        la = {_norm(line) for t in TEMPLATES[a] for _, line in t.lines}
+        lb = {_norm(line) for t in TEMPLATES[b] for _, line in t.lines}
+        assert not la & lb, (a, b, la & lb)
+
+
+def test_injection_pools_disjoint():
+    assert len(INJECTIONS["train"]["PERSON"]) >= 12
+    assert len(INJECTIONS["dev"]["PERSON"]) >= 6 and len(INJECTIONS["test"]["PERSON"]) >= 6
+    for a, b in PAIRS:
+        la = {_norm(s) for pool in INJECTIONS[a].values() for s in pool}
+        lb = {_norm(s) for pool in INJECTIONS[b].values() for s in pool}
+        assert not la & lb, (a, b, la & lb)
+
+
+def test_name_lists_disjoint():
+    tr, ho = NAME_STYLES["train"], NAME_STYLES["heldout"]
+    for key in ("apostrophe", "word_last", "particle"):
+        assert not set(tr[key]) & set(ho[key]), key
+    # Held-out splits get patterns train never sees.
+    assert not tr["word_first"]["F"] and not tr["word_first"]["M"] and not tr["particle"]
+    assert "Dr." not in tr["titles"]["F"] + tr["titles"]["M"]
+
+
+# --- noise --------------------------------------------------------------------
+
+def test_noise_fraction_per_split(calls):
+    for s in SPLITS:
+        cs = [c for c in calls if c["split"] == s]
+        assert 0.1 <= sum(c["noise"] for c in cs) / len(cs) <= 0.45, s
+
+
+def test_noisy_calls_are_lowercase_without_punctuation(calls):
+    noisy = [c for c in calls if c["noise"]]
+    assert noisy
+    for c in noisy:
+        masked = [list(t["text"]) for t in c["turns"]]
+        for span in c["labels"] + c["distractors"]:
+            assert span["value"] == span["value"].lower()
+            masked[span["turn_id"]][span["start"]:span["end"]] = " " * (span["end"] - span["start"])
+        for chars in masked:
+            literal = "".join(chars)
+            assert literal == literal.lower()
+            assert not re.search(r'[.,!?;:"](?!\d)', literal), literal
+
+
+def test_noise_adds_fillers(calls):
+    text = " ".join(t["text"] for c in calls if c["noise"] for t in c["turns"])
+    assert re.search(r"\b(um|uh)\b", text)
+
+
+# --- leakage ------------------------------------------------------------------
 
 UNLABELED_PII = re.compile(
     r"\S+@\S+"                          # email

@@ -1,0 +1,64 @@
+{
+  "base_model": "distilbert/distilbert-base-cased",
+  "device": "cpu",
+  "hyperparams": {
+    "epochs": 6,
+    "lr": 5e-05,
+    "batch_size": 16,
+    "weight_decay": 0.01,
+    "warmup": 0.1,
+    "seed": 42,
+    "patience": 2,
+    "max_length": 256
+  },
+  "n_train_examples": 3080,
+  "n_dev_examples": 774,
+  "n_train_calls": 240,
+  "n_dev_calls": 60,
+  "n_person_labels": 778,
+  "failed_alignments": 0,
+  "truncated_turns": 0,
+  "n_parameters": 65193219,
+  "epochs_run": 5,
+  "best_epoch": 3,
+  "best_dev_f1": 0.9449838187702265,
+  "train_seconds": 1860.5,
+  "model_size_mb": 261.46,
+  "history": [
+    {
+      "epoch": 1,
+      "loss": 0.1402,
+      "dev_precision": 0.9246575342465754,
+      "dev_recall": 0.8766233766233766,
+      "dev_f1": 0.8999999999999999
+    },
+    {
+      "epoch": 2,
+      "loss": 0.0016,
+      "dev_precision": 0.8771929824561403,
+      "dev_recall": 0.974025974025974,
+      "dev_f1": 0.9230769230769231
+    },
+    {
+      "epoch": 3,
+      "loss": 0.0008,
+      "dev_precision": 0.9419354838709677,
+      "dev_recall": 0.948051948051948,
+      "dev_f1": 0.9449838187702265
+    },
+    {
+      "epoch": 4,
+      "loss": 0.0002,
+      "dev_precision": 0.930379746835443,
+      "dev_recall": 0.9545454545454546,
+      "dev_f1": 0.9423076923076923
+    },
+    {
+      "epoch": 5,
+      "loss": 0.0,
+      "dev_precision": 0.9024390243902439,
+      "dev_recall": 0.961038961038961,
+      "dev_f1": 0.9308176100628931
+    }
+  ]
+}

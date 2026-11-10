@@ -1,0 +1,57 @@
+{
+  "detector": "pipeline_hf",
+  "embed_model": "bge-small",
+  "n_chunks": 5186,
+  "pattern_hits": {
+    "EMAIL": 0,
+    "PHONE": 0,
+    "CARD": 0,
+    "SIN": 0,
+    "ACCOUNT": 0
+  },
+  "planted_leaks": {
+    "PERSON": 17,
+    "EMAIL": 0,
+    "PHONE": 0,
+    "CARD": 0,
+    "SIN": 0,
+    "ACCOUNT": 0
+  },
+  "planted_support": {
+    "PERSON": 1044,
+    "EMAIL": 222,
+    "PHONE": 231,
+    "CARD": 193,
+    "SIN": 53,
+    "ACCOUNT": 74
+  },
+  "planted_leaks_by_split": {
+    "dev": {
+      "PERSON": 5,
+      "EMAIL": 0,
+      "PHONE": 0,
+      "CARD": 0,
+      "SIN": 0,
+      "ACCOUNT": 0
+    },
+    "test": {
+      "PERSON": 11,
+      "EMAIL": 0,
+      "PHONE": 0,
+      "CARD": 0,
+      "SIN": 0,
+      "ACCOUNT": 0
+    },
+    "train": {
+      "PERSON": 1,
+      "EMAIL": 0,
+      "PHONE": 0,
+      "CARD": 0,
+      "SIN": 0,
+      "ACCOUNT": 0
+    }
+  },
+  "labels_without_chunk": 0,
+  "allow_person_leaks": true,
+  "passed": true
+}

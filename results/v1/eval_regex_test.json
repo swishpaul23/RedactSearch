@@ -1,0 +1,125 @@
+{
+  "detector": "regex",
+  "n_calls": 60,
+  "per_type": {
+    "PERSON": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 135,
+      "support": 135,
+      "exact_recall": 0.0,
+      "leaked": 135,
+      "leak_rate": 1.0
+    },
+    "EMAIL": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 27,
+      "fp": 0,
+      "fn": 0,
+      "support": 27,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "PHONE": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 29,
+      "fp": 0,
+      "fn": 0,
+      "support": 29,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "CARD": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 29,
+      "fp": 0,
+      "fn": 0,
+      "support": 29,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "SIN": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "support": 12,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "ACCOUNT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "support": 12,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    }
+  },
+  "micro": {
+    "precision": 1.0,
+    "recall": 0.44672131147540983,
+    "f1": 0.6175637393767706,
+    "tp": 109,
+    "fp": 0,
+    "fn": 135,
+    "support": 244,
+    "leaked": 135,
+    "exact_recall": 0.44672131147540983,
+    "leak_rate": 0.5532786885245902
+  },
+  "micro_excl_person": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 109,
+    "fp": 0,
+    "fn": 0,
+    "support": 109,
+    "leaked": 0,
+    "exact_recall": 1.0,
+    "leak_rate": 0.0
+  },
+  "distractor_fp": {
+    "AMOUNT": {
+      "flagged": 0,
+      "total": 37
+    },
+    "DATE": {
+      "flagged": 0,
+      "total": 31
+    },
+    "ORDER_NUMBER": {
+      "flagged": 0,
+      "total": 12
+    },
+    "REFERENCE": {
+      "flagged": 0,
+      "total": 26
+    },
+    "TIME": {
+      "flagged": 0,
+      "total": 21
+    }
+  },
+  "split": "test"
+}

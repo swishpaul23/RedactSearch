@@ -9,8 +9,12 @@ from pathlib import Path
 
 # MultiWOZ (MIT License, (c) 2019 Pawel Budzianowski): https://github.com/budzianowski/multiwoz
 BASE_URL = "https://raw.githubusercontent.com/budzianowski/multiwoz/master/data/MultiWOZ_2.2"
-# Official MultiWOZ splits back our splits, so train/test dialogues can never overlap.
-SPLIT_FILES = {"train": "train/dialogues_001.json", "test": "test/dialogues_001.json"}
+# Official MultiWOZ splits back our splits, so train/dev/test dialogues can never overlap.
+SPLIT_FILES = {
+    "train": "train/dialogues_001.json",
+    "dev": "dev/dialogues_001.json",
+    "test": "test/dialogues_001.json",
+}
 DEFAULT_DIR = Path("data/raw/multiwoz")
 
 SPEAKERS = {"USER": "customer", "SYSTEM": "agent"}

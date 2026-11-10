@@ -4,3 +4,9 @@ __pycache__/
 data/raw/
 .env
 *.egg-info/
+models/
+.cache/
+data/redacted/*
+!data/redacted/.gitkeep
+data/index/*
+!data/index/.gitkeep

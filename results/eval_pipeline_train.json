@@ -1,0 +1,125 @@
+{
+  "detector": "pipeline",
+  "n_calls": 240,
+  "per_type": {
+    "PERSON": {
+      "precision": 0.9889064976228209,
+      "recall": 1.0,
+      "f1": 0.9944223107569722,
+      "tp": 624,
+      "fp": 7,
+      "fn": 0,
+      "support": 624,
+      "exact_recall": 1.0,
+      "leaked": 1,
+      "leak_rate": 0.0016025641025641025
+    },
+    "EMAIL": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 124,
+      "fp": 0,
+      "fn": 0,
+      "support": 124,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "PHONE": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 125,
+      "fp": 0,
+      "fn": 0,
+      "support": 125,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "CARD": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 119,
+      "fp": 0,
+      "fn": 0,
+      "support": 119,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "SIN": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 32,
+      "fp": 0,
+      "fn": 0,
+      "support": 32,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    },
+    "ACCOUNT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 40,
+      "fp": 0,
+      "fn": 0,
+      "support": 40,
+      "exact_recall": 1.0,
+      "leaked": 0,
+      "leak_rate": 0.0
+    }
+  },
+  "micro": {
+    "precision": 0.9934640522875817,
+    "recall": 1.0,
+    "f1": 0.9967213114754099,
+    "tp": 1064,
+    "fp": 7,
+    "fn": 0,
+    "support": 1064,
+    "leaked": 1,
+    "exact_recall": 1.0,
+    "leak_rate": 0.0009398496240601503
+  },
+  "micro_excl_person": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 440,
+    "fp": 0,
+    "fn": 0,
+    "support": 440,
+    "leaked": 0,
+    "exact_recall": 1.0,
+    "leak_rate": 0.0
+  },
+  "distractor_fp": {
+    "AMOUNT": {
+      "flagged": 0,
+      "total": 162
+    },
+    "DATE": {
+      "flagged": 0,
+      "total": 114
+    },
+    "ORDER_NUMBER": {
+      "flagged": 0,
+      "total": 44
+    },
+    "REFERENCE": {
+      "flagged": 0,
+      "total": 90
+    },
+    "TIME": {
+      "flagged": 0,
+      "total": 55
+    }
+  },
+  "split": "train"
+}
