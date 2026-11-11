@@ -181,6 +181,7 @@ def test_missing_index_error(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="build_index.py"):
         CallIndex(tmp_path / "nope").count()
+    assert not (tmp_path / "nope").exists()  # looking for an index never creates one
 
 
 def test_build_refuses_structured_pii(tmp_path):

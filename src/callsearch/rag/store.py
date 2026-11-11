@@ -58,11 +58,12 @@ class CallIndex:
             import chromadb
             from chromadb.config import Settings
 
-            self.path.mkdir(parents=True, exist_ok=True)
             self._client = chromadb.PersistentClient(path=str(self.path), settings=Settings(anonymized_telemetry=False))
         return self._client
 
     def _collection(self):
+        if not (self.path / "chroma.sqlite3").exists():  # reading must never create an empty index
+            raise FileNotFoundError(f"no index at {self.path}; build one: python scripts/build_index.py")
         try:
             return self.client.get_collection(COLLECTION, embedding_function=None)
         except Exception as e:  # chromadb raises NotFoundError (version-dependent type)
@@ -77,6 +78,7 @@ class CallIndex:
 
     def build(self, chunks: list[Chunk], embedder: Embedder, info: dict | None = None) -> int:
         """Replace the collection with these chunks. Returns the number stored."""
+        self.path.mkdir(parents=True, exist_ok=True)
         if any(c.name == COLLECTION for c in self.client.list_collections()):
             self.client.delete_collection(COLLECTION)
         col = self.client.create_collection(

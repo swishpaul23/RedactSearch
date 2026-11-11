@@ -1,0 +1,121 @@
+/*
+ * Design tokens. The product's visual idea is a document review desk:
+ *   ink      - text and the solid redaction bars that replace personal data
+ *   pen      - the one interactive colour (links, buttons, focus)
+ *   marker   - a highlighter, used only for the cited turn in a transcript
+ * Everything else stays quiet so the redaction bars and the highlight carry meaning.
+ */
+
+:root {
+  --font-ui: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  /* Type scale (1.2 ratio from a 15px body) */
+  --text-xs: 0.8125rem; /* 13 */
+  --text-sm: 0.875rem;  /* 14 */
+  --text-md: 0.9375rem; /* 15 */
+  --text-lg: 1.125rem;  /* 18 */
+  --text-xl: 1.375rem;  /* 22 */
+  --text-2xl: 1.75rem;  /* 28 */
+  --leading-tight: 1.25;
+  --leading-body: 1.55;
+  --leading-read: 1.7;
+
+  /* 4/8 spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --content-max: 1200px;
+  --read-max: 72ch;
+  --sidebar-w: 232px;
+
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Light theme */
+  --paper: #f5f6f8;        /* L0 app background */
+  --surface: #ffffff;      /* L1 panels, tables */
+  --surface-2: #eef1f5;    /* L2 hover, selected rows, headers */
+  --line: #d6dce4;         /* hairlines */
+  --line-strong: #b4bdc9;
+  --ink: #17202b;          /* body text, redaction bars */
+  --ink-2: #47525f;        /* secondary text (7:1 on surface) */
+  --ink-3: #5f6b79;        /* tertiary text (5.3:1 on surface) */
+  --on-ink: #f5f6f8;       /* text on a redaction bar */
+  --pen: #1f47a8;          /* links, primary actions, focus */
+  --pen-hover: #16357f;
+  --on-pen: #ffffff;
+  --pen-soft: #e7edfb;
+  --marker: #fbe68a;       /* highlighted (cited) turn */
+  --marker-edge: #c8a400;
+  --ok: #17663f;
+  --ok-soft: #e3f3ea;
+  --warn: #8a4e00;
+  --warn-soft: #fdf0dc;
+  --bad: #a3221b;
+  --bad-soft: #fbe7e5;
+  --focus: #1f47a8;
+  --shadow-pop: 0 6px 24px rgb(23 32 43 / 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #11151b;
+    --surface: #181d25;
+    --surface-2: #212833;
+    --line: #2c3441;
+    --line-strong: #3c4656;
+    --ink: #e5e9ef;
+    --ink-2: #b2bccb;
+    --ink-3: #98a3b4;
+    --on-ink: #11151b;
+    --pen: #9db6ff;
+    --pen-hover: #c0d0ff;
+    --on-pen: #0d1220;
+    --pen-soft: #1d2740;
+    --marker: #4a3f12;
+    --marker-edge: #d9b53a;
+    --ok: #7fd3a3;
+    --ok-soft: #14291e;
+    --warn: #f0b765;
+    --warn-soft: #2d2213;
+    --bad: #ff9a8f;
+    --bad-soft: #321a19;
+    --focus: #9db6ff;
+    --shadow-pop: 0 6px 24px rgb(0 0 0 / 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #11151b;
+  --surface: #181d25;
+  --surface-2: #212833;
+  --line: #2c3441;
+  --line-strong: #3c4656;
+  --ink: #e5e9ef;
+  --ink-2: #b2bccb;
+  --ink-3: #98a3b4;
+  --on-ink: #11151b;
+  --pen: #9db6ff;
+  --pen-hover: #c0d0ff;
+  --on-pen: #0d1220;
+  --pen-soft: #1d2740;
+  --marker: #4a3f12;
+  --marker-edge: #d9b53a;
+  --ok: #7fd3a3;
+  --ok-soft: #14291e;
+  --warn: #f0b765;
+  --warn-soft: #2d2213;
+  --bad: #ff9a8f;
+  --bad-soft: #321a19;
+  --focus: #9db6ff;
+  --shadow-pop: 0 6px 24px rgb(0 0 0 / 0.45);
+}

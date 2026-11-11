@@ -271,6 +271,51 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
 
+## Web app
+
+```powershell
+# API (reads data/redacted/, the index and results/; serves web/dist when built)
+python -m callsearch.api.main                       # http://127.0.0.1:8000, API docs at /api/docs
+
+# Frontend in development (Node 20+), proxied to the API
+cd web; npm ci; npm run dev                         # http://localhost:5173
+
+# Production: build once, then the API serves the app at /
+cd web; npm run build; cd ..; python -m callsearch.api.main
+```
+
+FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React Router). Four pages, each built on one standard layout pattern:
+
+| page | pattern | what it is for |
+|---|---|---|
+| Ask (`/`) | split pane | Ask a question. The answer and its cited turns are on the left; the selected call's transcript is on the right, with the cited turn highlighted. A refusal explains why ("No call mentions 'sauna'"). |
+| Calls (`/calls`) | list | Search, filter, sort and page through the 400 redacted calls. The state lives in the URL, so views can be shared. |
+| Call (`/calls/:id`) | detail | Full redacted transcript, plus a Redactions tab with counts by type. `?turn=n` highlights a cited turn. |
+| Quality (`/quality`) | dashboard | Test-split results read from `results/`: redaction comparison, search and answer scores, index check, name models. |
+
+**API** (typed with Pydantic; the schema is at `/api/openapi.json`):
+
+| route | |
+|---|---|
+| `GET /api/health` | calls loaded, index status, answer model |
+| `POST /api/ask` | `{question, k, mode, split}` → cited answer, citations, discard reason, provenance, timing |
+| `GET /api/search` | retrieval only, no LLM |
+| `GET /api/calls` | `q`, `split`, `source`, `sort`, `order`, `page`, `page_size` |
+| `GET /api/calls/{id}` | redacted transcript and redaction counts |
+| `GET /api/metrics` | test-split results for the Quality page |
+
+- **Redacted data only.** The API reads `data/redacted/` through its manifest check, the index and `results/`. It never opens `data/raw/`.
+- **Errors** always come back as `{"error": {"code", "message"}}`, and the message says how to fix the problem, for example "The search index is not built. Run: python scripts/build_index.py". A missing index, missing calls or an unreachable answer model return 503 with a stable code.
+- **Operations:** every response carries an `X-Request-ID`. Logs are JSON lines with method, path, status and timing, never question or transcript text (a test checks this). `/api/ask` is rate limited per client (`CALLSEARCH_ASK_PER_MINUTE`, default 20) and returns 429 with `Retry-After`. Security headers include a strict Content-Security-Policy (`'self'` only, no inline scripts), `nosniff`, `no-referrer` and `frame-ancestors 'none'`.
+- **Typed end to end:** `scripts/export_openapi.py` writes `web/openapi.json`, and `npm run gen:api` generates `web/src/api/schema.d.ts` from it. `test_openapi_file_matches_code` fails if the API changes without regenerating, so the frontend types cannot drift.
+- **Accessibility:**
+  - **Navigation and focus:** a skip link; landmarks and labelled regions; focus moves to the page heading on navigation; a visible focus ring everywhere.
+  - **Keyboard:** `/` focuses the page's search, `Enter` asks, arrow keys move through sources and tabs.
+  - **Screen readers:** a live region announces answers. Redaction marks read as "redacted name", not "[PERSON]". Sortable columns expose `aria-sort`.
+  - **Display:** light and dark themes that follow the system or a toggle; reduced motion respected; no horizontal scrolling at 390 px.
+  - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page in light mode.
+- **Design:** quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
+
 ## AWS: S3 + Lambda redaction (optional)
 
 ```text
