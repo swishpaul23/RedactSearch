@@ -24,6 +24,6 @@ export function parseChunkId(id: string): { callId: string; turnId: number } {
   return { callId: id.slice(0, i), turnId: Number(id.slice(i + 1)) };
 }
 
-export const SPLIT_LABEL: Record<string, string> = { train: "Train", dev: "Dev", test: "Test" };
-export const SOURCE_LABEL: Record<string, string> = { template: "Billing template", multiwoz: "Bookings (MultiWOZ)" };
+export const SPLIT_LABEL: Record<string, string> = { train: "Train", dev: "Dev", test: "Test", upload: "Uploaded" };
+export const SOURCE_LABEL: Record<string, string> = { template: "Billing template", multiwoz: "Bookings (MultiWOZ)", upload: "Uploaded" };
 export const SPEAKER_LABEL: Record<string, string> = { agent: "Agent", customer: "Customer" };

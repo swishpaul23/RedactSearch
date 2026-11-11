@@ -20,7 +20,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -28,12 +28,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from callsearch import __version__ as VERSION
 from callsearch.api.schemas import (AnswerOut, AskIn, CallDetail, CallPage, CitationOut, ErrorOut, HealthOut,
                                     HitOut, IndexInfo, LLMInfo, MetricsOut, Mode, Provenance, SearchOut, Source,
-                                    Split)
+                                    Split, UploadJob, UploadList)
 from callsearch.api.services import Services, Unavailable
+from callsearch.api.uploads import UploadJobs
+from callsearch.ingest import MAX_FILE_BYTES, MAX_FILES
 
 WEB_DIST = Path(os.environ.get("CALLSEARCH_WEB_DIST", "web/dist"))
 ASK_PER_MINUTE = int(os.environ.get("CALLSEARCH_ASK_PER_MINUTE", "20"))
-ERRORS = {r: {"model": ErrorOut} for r in (400, 404, 422, 429, 503)}
+UPLOADS_PER_MINUTE = int(os.environ.get("CALLSEARCH_UPLOADS_PER_MINUTE", "10"))
+MAX_UPLOAD_BODY = MAX_FILES * MAX_FILE_BYTES + 1_000_000
+ERRORS = {r: {"model": ErrorOut} for r in (400, 404, 413, 422, 429, 503)}
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": ("default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; "
@@ -75,9 +79,12 @@ def error(status: int, code: str, message: str, headers: dict | None = None) -> 
 
 
 def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_MINUTE,
-               web_dist: Path = WEB_DIST) -> FastAPI:
+               web_dist: Path = WEB_DIST, uploads: UploadJobs | None = None,
+               uploads_per_minute: int = UPLOADS_PER_MINUTE) -> FastAPI:
     svc = services or Services()
     limiter = RateLimiter(ask_per_minute)
+    upload_limiter = RateLimiter(uploads_per_minute)
+    jobs = uploads or UploadJobs(svc)
     app = FastAPI(title="RedactSearch API", version=VERSION, docs_url="/api/docs", redoc_url=None,
                   openapi_url="/api/openapi.json",
                   description="Search and cited answers over redacted call transcripts. Redacted data only.")
@@ -86,7 +93,9 @@ def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_M
     async def request_context(request: Request, call_next):
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
         t0 = time.perf_counter()
-        response = await call_next(request)
+        too_big = request.url.path == "/api/uploads" and int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BODY
+        response = (error(413, "upload_too_large", f"Uploads are limited to {MAX_FILES} files of "
+                          f"{MAX_FILE_BYTES // 1_000_000} MB each.") if too_big else await call_next(request))
         ms = round((time.perf_counter() - t0) * 1000)
         response.headers["X-Request-ID"] = rid
         for k, v in SECURITY_HEADERS.items():
@@ -161,6 +170,30 @@ def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_M
     def metrics() -> MetricsOut:
         r = svc.results
         return MetricsOut(split="test", redaction=r.redaction(), rag=r.rag(), guard=r.guard(), models=r.models())
+
+    @app.post("/api/uploads", response_model=UploadJob, status_code=202, responses=ERRORS, tags=["uploads"])
+    async def upload(request: Request, files: list[UploadFile] = File(description=".jsonl, .json or .txt")):
+        client = request.client.host if request.client else "unknown"
+        wait = upload_limiter.check(client)
+        if wait:
+            return error(429, "rate_limited", f"Too many uploads. Try again in {wait} seconds.",
+                         {"Retry-After": str(wait)})
+        read = []
+        for f in files[:MAX_FILES + 1]:
+            read.append((f.filename, await f.read(MAX_FILE_BYTES + 1)))
+            await f.close()
+        return jobs.submit(read)
+
+    @app.get("/api/uploads", response_model=UploadList, tags=["uploads"])
+    def uploads_list() -> UploadList:
+        return UploadList(items=jobs.recent())
+
+    @app.get("/api/uploads/{job_id}", response_model=UploadJob, responses=ERRORS, tags=["uploads"])
+    def upload_status(job_id: str) -> UploadJob:
+        job = jobs.get(job_id)
+        if job is None:
+            raise HTTPException(404, "No upload with that id. Upload history resets when the server restarts.")
+        return job
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
     def api_not_found(rest: str):

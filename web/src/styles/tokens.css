@@ -64,6 +64,10 @@
   --bad-soft: #fbe7e5;
   --focus: #1f47a8;
   --shadow-pop: 0 6px 24px rgb(23 32 43 / 0.14);
+  /* Depth after hairlines: a soft lift for panels and buttons, never a glow */
+  --shadow-1: 0 1px 2px rgb(23 32 43 / 0.06);
+  --shadow-btn: 0 1px 1px rgb(23 32 43 / 0.08);
+  --hit: 44px; /* minimum touch target (.ux-profile.md) */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,6 +95,8 @@
     --bad-soft: #321a19;
     --focus: #9db6ff;
     --shadow-pop: 0 6px 24px rgb(0 0 0 / 0.45);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-btn: 0 1px 1px rgb(0 0 0 / 0.35);
   }
 }
 
@@ -118,4 +124,6 @@
   --bad-soft: #321a19;
   --focus: #9db6ff;
   --shadow-pop: 0 6px 24px rgb(0 0 0 / 0.45);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-btn: 0 1px 1px rgb(0 0 0 / 0.35);
 }

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router";
 import { api, call } from "../api/client";
 import { usePersistentState } from "../lib/hooks";
-import { AskIcon, CallsIcon, QualityIcon, ThemeIcon } from "./Icons";
+import { AskIcon, CallsIcon, QualityIcon, ThemeIcon, UploadIcon } from "./Icons";
 
 type Theme = "system" | "light" | "dark";
 const NEXT: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
@@ -12,6 +12,7 @@ const THEME_LABEL: Record<Theme, string> = { system: "Match system", light: "Lig
 const NAV = [
   { to: "/", label: "Ask", icon: AskIcon, end: true },
   { to: "/calls", label: "Calls", icon: CallsIcon, end: false },
+  { to: "/upload", label: "Upload", icon: UploadIcon, end: false },
   { to: "/quality", label: "Quality", icon: QualityIcon, end: false },
 ];
 

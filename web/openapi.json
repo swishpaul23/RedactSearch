@@ -96,7 +96,8 @@
                 "enum": [
                   "train",
                   "dev",
-                  "test"
+                  "test",
+                  "upload"
                 ],
                 "type": "string"
               },
@@ -112,6 +113,24 @@
           "question"
         ],
         "title": "AskIn",
+        "type": "object"
+      },
+      "Body_upload_api_uploads_post": {
+        "properties": {
+          "files": {
+            "description": ".jsonl, .json or .txt",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_api_uploads_post",
         "type": "object"
       },
       "CallDetail": {
@@ -135,7 +154,8 @@
           "source": {
             "enum": [
               "template",
-              "multiwoz"
+              "multiwoz",
+              "upload"
             ],
             "title": "Source",
             "type": "string"
@@ -144,7 +164,8 @@
             "enum": [
               "train",
               "dev",
-              "test"
+              "test",
+              "upload"
             ],
             "title": "Split",
             "type": "string"
@@ -227,7 +248,8 @@
           "source": {
             "enum": [
               "template",
-              "multiwoz"
+              "multiwoz",
+              "upload"
             ],
             "title": "Source",
             "type": "string"
@@ -236,7 +258,8 @@
             "enum": [
               "train",
               "dev",
-              "test"
+              "test",
+              "upload"
             ],
             "title": "Split",
             "type": "string"
@@ -479,7 +502,8 @@
             "enum": [
               "train",
               "dev",
-              "test"
+              "test",
+              "upload"
             ],
             "title": "Split",
             "type": "string"
@@ -847,6 +871,161 @@
         ],
         "title": "TurnOut",
         "type": "object"
+      },
+      "UploadFileReport": {
+        "properties": {
+          "calls": {
+            "description": "Calls accepted from this file",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "issues": {
+            "description": "Calls with an issue are not imported",
+            "items": {
+              "$ref": "#/components/schemas/UploadIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "turns": {
+            "title": "Turns",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "calls",
+          "turns",
+          "issues"
+        ],
+        "title": "UploadFileReport",
+        "type": "object"
+      },
+      "UploadIssue": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "where": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location only, e.g. \"Line 4\". Never quotes file text.",
+            "title": "Where"
+          }
+        },
+        "required": [
+          "where",
+          "message"
+        ],
+        "title": "UploadIssue",
+        "type": "object"
+      },
+      "UploadJob": {
+        "properties": {
+          "call_ids": {
+            "description": "Ids of the imported calls, once saved",
+            "items": {
+              "type": "string"
+            },
+            "title": "Call Ids",
+            "type": "array"
+          },
+          "created_at": {
+            "description": "ISO 8601, UTC",
+            "title": "Created At",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/UploadFileReport"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "indexed": {
+            "description": "Whether the calls were added to the search index",
+            "title": "Indexed",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "n_calls": {
+            "description": "Calls accepted for redaction",
+            "title": "N Calls",
+            "type": "integer"
+          },
+          "redactions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Placeholders added, by type",
+            "title": "Redactions",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "redacting",
+              "indexing",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "files",
+          "n_calls",
+          "call_ids",
+          "redactions",
+          "indexed"
+        ],
+        "title": "UploadJob",
+        "type": "object"
+      },
+      "UploadList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UploadJob"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "UploadList",
+        "type": "object"
       }
     }
   },
@@ -900,6 +1079,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
           },
           "422": {
             "content": {
@@ -969,7 +1158,8 @@
                   "enum": [
                     "train",
                     "dev",
-                    "test"
+                    "test",
+                    "upload"
                   ],
                   "type": "string"
                 },
@@ -989,7 +1179,8 @@
                 {
                   "enum": [
                     "template",
-                    "multiwoz"
+                    "multiwoz",
+                    "upload"
                   ],
                   "type": "string"
                 },
@@ -1085,6 +1276,16 @@
             },
             "description": "Not Found"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1166,6 +1367,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
           },
           "422": {
             "content": {
@@ -1298,7 +1509,8 @@
                   "enum": [
                     "train",
                     "dev",
-                    "test"
+                    "test",
+                    "upload"
                   ],
                   "type": "string"
                 },
@@ -1341,6 +1553,16 @@
             },
             "description": "Not Found"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1375,6 +1597,208 @@
         "summary": "Search",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/uploads": {
+      "get": {
+        "operationId": "uploads_list_api_uploads_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Uploads List",
+        "tags": [
+          "uploads"
+        ]
+      },
+      "post": {
+        "operationId": "upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadJob"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/uploads/{job_id}": {
+      "get": {
+        "operationId": "upload_status_api_uploads__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadJob"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Status",
+        "tags": [
+          "uploads"
         ]
       }
     }

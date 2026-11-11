@@ -93,6 +93,19 @@ class CallIndex:
         self._table = self._df = None
         return col.count()
 
+    def add(self, chunks: list[Chunk]) -> int:
+        """Add chunks to the existing collection, embedded with the index's own model."""
+        col = self._collection()
+        if chunks:
+            vectors = self.embedder().embed_passages([c.embed_text for c in chunks])
+            for i in range(0, len(chunks), ADD_BATCH):
+                part = chunks[i:i + ADD_BATCH]
+                col.upsert(ids=[c.id for c in part], embeddings=vectors[i:i + ADD_BATCH],
+                           documents=[c.text for c in part], metadatas=[c.metadata() for c in part])
+            col.modify(metadata={**(col.metadata or {}), "n_chunks": col.count()})
+        self._table = self._df = None
+        return col.count()
+
     def documents(self, batch: int = 1000) -> Iterator[tuple[str, str]]:
         """Every stored (chunk id, document text), for the index guard."""
         col, offset = self._collection(), 0

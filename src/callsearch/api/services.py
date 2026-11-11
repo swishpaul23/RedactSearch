@@ -57,6 +57,24 @@ class CallStore:
             self._by_id = {c["call_id"]: c for c in self._calls}
         return self._calls
 
+    def append(self, new_calls: list[dict], detector_name: str) -> None:
+        """Add already-redacted calls and rewrite the redacted file and its manifest."""
+        from callsearch.redact.export import ManifestError, load_redacted, write_redacted
+
+        with self._lock:
+            try:
+                existing, manifest = load_redacted(self._dir)
+                detector_name = manifest.get("detector", detector_name)
+            except ManifestError:
+                if (self._dir / "manifest.json").exists():
+                    raise Unavailable("calls_unavailable", "The redacted calls file failed its check, so "
+                                      "nothing was added. Re-run the redaction export.") from None
+                existing = []
+            calls = existing + new_calls
+            write_redacted(calls, self._dir, detector_name)
+            self._calls = sorted(calls, key=lambda c: c["call_id"])
+            self._by_id = {c["call_id"]: c for c in self._calls}
+
     def count(self) -> int:
         try:
             return len(self._load())
@@ -166,11 +184,12 @@ class ResultsReader:
 
 class Services:
     def __init__(self, calls: CallStore | None = None, index=None, answerer=None,
-                 results: ResultsReader | None = None):
+                 results: ResultsReader | None = None, detector=None):
         self.calls = calls or CallStore()
         self.results = results or ResultsReader()
         self._index = index
         self._answerer = answerer
+        self._detector = detector
         self._ask_lock = threading.Lock()  # one answer at a time: the local model is the bottleneck anyway
 
     @property
@@ -222,3 +241,45 @@ class Services:
                 raise Unavailable("answer_model_unavailable",
                                   f"The answer model could not be reached: {e}. Check that Ollama is running "
                                   "or that CALLSEARCH_LLM_PROVIDER is set correctly.") from e
+
+    @property
+    def detector(self):
+        """Redaction for uploads: the same regex + DistilBERT pipeline that redacted the dataset."""
+        if self._detector is None:
+            from callsearch.redact.pipeline import PipelineHFDetector
+
+            self._detector = PipelineHFDetector()
+        return self._detector
+
+    def ingest(self, calls: list[dict], stage) -> dict:
+        """Redact raw calls in memory, save them with the redacted data and index them.
+
+        calls carry call_id, split, source and turns (turn_id, speaker, start_sec, text).
+        stage(name) reports progress. The raw text is never written anywhere.
+        """
+        from callsearch.rag.chunk import chunk_calls
+        from callsearch.rag.guard import pattern_scan
+        from callsearch.redact.export import redact_calls
+
+        stage("redacting")
+        try:
+            redacted = redact_calls(calls, self.detector)
+        except (OSError, RuntimeError, ImportError) as e:
+            raise Unavailable("redaction_unavailable", "The redaction model could not be loaded. Train it "
+                              "first: python scripts/train_ner_hf.py") from e
+        left = pattern_scan([t["text"] for c in redacted for t in c["turns"]])
+        if any(left.values()):
+            raise Unavailable("redaction_check_failed", f"{sum(left.values())} card, SIN, account, email or "
+                              "phone values were still found after redaction, so nothing was saved.")
+        self.calls.append(redacted, getattr(self.detector, "name", "pipeline_hf"))
+        counts = Counter(m for c in redacted for t in c["turns"] for m in PLACEHOLDER.findall(t["text"]))
+        info = self.index_info()
+        indexed = False
+        if info is not None:
+            stage("indexing")
+            context = int(self.index.info.get("context_turns", 1))
+            with self._ask_lock:  # no answer reads the index while it grows
+                self.index.add(chunk_calls(redacted, context))
+            indexed = True
+        return {"call_ids": [c["call_id"] for c in redacted], "redactions": dict(sorted(counts.items())),
+                "indexed": indexed}

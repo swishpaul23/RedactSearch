@@ -18,5 +18,6 @@ boto3==1.43.116
 fastapi==0.162.0
 uvicorn==0.54.0
 httpx==0.28.1
+python-multipart==0.0.32
 # Presidio's default spaCy model (Presidio also auto-downloads it on first use)
 en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl

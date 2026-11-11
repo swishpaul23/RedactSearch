@@ -19,7 +19,7 @@ const SORTABLE: { key: SortKey; label: string; num?: boolean }[] = [
 const SORT_NAME: Record<SortKey, string> = { call_id: "call ID", n_turns: "turns", duration_sec: "length", redactions: "redactions" };
 const PAGE_SIZES = [25, 50, 100];
 const SPLITS = ["train", "dev", "test"] as const;
-const SOURCES = ["template", "multiwoz"] as const;
+const SOURCES = ["template", "multiwoz", "upload"] as const;
 
 function Filters({ split, source, onChange, onClose }: {
   split: string;
@@ -116,8 +116,8 @@ export function CallsPage() {
           params: {
             query: {
               q: q || undefined,
-              split: (split || undefined) as "train" | "dev" | "test" | undefined,
-              source: (source || undefined) as "template" | "multiwoz" | undefined,
+              split: (split || undefined) as (typeof SPLITS)[number] | undefined,
+              source: (source || undefined) as (typeof SOURCES)[number] | undefined,
               sort,
               order,
               page,
@@ -245,9 +245,7 @@ export function CallsPage() {
                     </Link>
                   </th>
                   <td>{SOURCE_LABEL[c.source]}</td>
-                  <td>
-                    <span className="badge">{SPLIT_LABEL[c.split]}</span>
-                  </td>
+                  <td>{SPLIT_LABEL[c.split]}</td>
                   <td className="num">{c.n_turns}</td>
                   <td className="num">{clock(c.duration_sec)}</td>
                   <td className="num">{c.redactions}</td>

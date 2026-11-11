@@ -106,6 +106,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploads List */
+        get: operations["uploads_list_api_uploads_get"];
+        put?: never;
+        /** Upload */
+        post: operations["upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Upload Status */
+        get: operations["upload_status_api_uploads__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -157,7 +192,15 @@ export interface components {
              * Split
              * @description Restrict retrieval to one data split
              */
-            split?: ("train" | "dev" | "test") | null;
+            split?: ("train" | "dev" | "test" | "upload") | null;
+        };
+        /** Body_upload_api_uploads_post */
+        Body_upload_api_uploads_post: {
+            /**
+             * Files
+             * @description .jsonl, .json or .txt
+             */
+            files: string[];
         };
         /** CallDetail */
         CallDetail: {
@@ -176,12 +219,12 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "template" | "multiwoz";
+            source: "template" | "multiwoz" | "upload";
             /**
              * Split
              * @enum {string}
              */
-            split: "train" | "dev" | "test";
+            split: "train" | "dev" | "test" | "upload";
             /** Turns */
             turns: components["schemas"]["TurnOut"][];
         };
@@ -221,12 +264,12 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "template" | "multiwoz";
+            source: "template" | "multiwoz" | "upload";
             /**
              * Split
              * @enum {string}
              */
-            split: "train" | "dev" | "test";
+            split: "train" | "dev" | "test" | "upload";
         };
         /** CitationOut */
         CitationOut: {
@@ -339,7 +382,7 @@ export interface components {
              * Split
              * @enum {string}
              */
-            split: "train" | "dev" | "test";
+            split: "train" | "dev" | "test" | "upload";
             /** Start Sec */
             start_sec: number;
             /** Text */
@@ -467,6 +510,79 @@ export interface components {
             /** Turn Id */
             turn_id: number;
         };
+        /** UploadFileReport */
+        UploadFileReport: {
+            /**
+             * Calls
+             * @description Calls accepted from this file
+             */
+            calls: number;
+            /**
+             * Issues
+             * @description Calls with an issue are not imported
+             */
+            issues: components["schemas"]["UploadIssue"][];
+            /** Name */
+            name: string;
+            /** Turns */
+            turns: number;
+        };
+        /** UploadIssue */
+        UploadIssue: {
+            /** Message */
+            message: string;
+            /**
+             * Where
+             * @description Location only, e.g. "Line 4". Never quotes file text.
+             */
+            where: string | null;
+        };
+        /** UploadJob */
+        UploadJob: {
+            /**
+             * Call Ids
+             * @description Ids of the imported calls, once saved
+             */
+            call_ids: string[];
+            /**
+             * Created At
+             * @description ISO 8601, UTC
+             */
+            created_at: string;
+            /** Files */
+            files: components["schemas"]["UploadFileReport"][];
+            /** Id */
+            id: string;
+            /**
+             * Indexed
+             * @description Whether the calls were added to the search index
+             */
+            indexed: boolean;
+            /** Message */
+            message?: string | null;
+            /**
+             * N Calls
+             * @description Calls accepted for redaction
+             */
+            n_calls: number;
+            /**
+             * Redactions
+             * @description Placeholders added, by type
+             */
+            redactions: {
+                [key: string]: number;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "redacting" | "indexing" | "done" | "failed";
+        };
+        /** UploadList */
+        UploadList: {
+            /** Items */
+            items: components["schemas"]["UploadJob"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -516,6 +632,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorOut"];
                 };
             };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -549,8 +674,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
-                split?: ("train" | "dev" | "test") | null;
-                source?: ("template" | "multiwoz") | null;
+                split?: ("train" | "dev" | "test" | "upload") | null;
+                source?: ("template" | "multiwoz" | "upload") | null;
                 sort?: "call_id" | "n_turns" | "duration_sec" | "redactions";
                 order?: "asc" | "desc";
                 page?: number;
@@ -582,6 +707,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -649,6 +783,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -731,7 +874,7 @@ export interface operations {
                 q: string;
                 k?: number;
                 mode?: "dense" | "bm25" | "hybrid";
-                split?: ("train" | "dev" | "test") | null;
+                split?: ("train" | "dev" | "test" | "upload") | null;
             };
             header?: never;
             path?: never;
@@ -759,6 +902,189 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    uploads_list_api_uploads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadList"];
+                };
+            };
+        };
+    };
+    upload_api_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_api_uploads_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    upload_status_api_uploads__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };

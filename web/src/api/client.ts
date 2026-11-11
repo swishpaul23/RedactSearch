@@ -9,6 +9,7 @@ export type CallSummary = components["schemas"]["CallSummary"];
 export type CitationOut = components["schemas"]["CitationOut"];
 export type HealthOut = components["schemas"]["HealthOut"];
 export type MetricsOut = components["schemas"]["MetricsOut"];
+export type UploadJob = components["schemas"]["UploadJob"];
 export type Mode = AskIn["mode"];
 
 /** An API failure with the server's stable code and its human-readable message. */

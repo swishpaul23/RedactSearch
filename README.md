@@ -284,13 +284,14 @@ cd web; npm ci; npm run dev                         # http://localhost:5173
 cd web; npm run build; cd ..; python -m callsearch.api.main
 ```
 
-FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React Router). Four pages, each built on one standard layout pattern:
+FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React Router). Five pages, each built on one standard layout pattern:
 
 | page | pattern | what it is for |
 |---|---|---|
 | Ask (`/`) | split pane | Ask a question. The answer and its cited turns are on the left; the selected call's transcript is on the right, with the cited turn highlighted. A refusal explains why ("No call mentions 'sauna'"). |
 | Calls (`/calls`) | list | Search, filter, sort and page through the 400 redacted calls. The state lives in the URL, so views can be shared. |
 | Call (`/calls/:id`) | detail | Full redacted transcript, plus a Redactions tab with counts by type. `?turn=n` highlights a cited turn. |
+| Upload (`/upload`) | form | Add your own transcripts, one file or a batch. They are redacted in memory, saved with the redacted data and added to the search index; the page shows progress, links to the new calls and lists any lines that could not be read. |
 | Quality (`/quality`) | dashboard | Test-split results read from `results/`: redaction comparison, search and answer scores, index check, name models. |
 
 **API** (typed with Pydantic; the schema is at `/api/openapi.json`):
@@ -303,18 +304,25 @@ FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React R
 | `GET /api/calls` | `q`, `split`, `source`, `sort`, `order`, `page`, `page_size` |
 | `GET /api/calls/{id}` | redacted transcript and redaction counts |
 | `GET /api/metrics` | test-split results for the Quality page |
+| `POST /api/uploads` | multipart `files` → 202 and an upload job; redaction and indexing run in the background |
+| `GET /api/uploads/{id}` | job status (`queued`, `redacting`, `indexing`, `done`, `failed`), imported call ids, redaction counts, per-file issues |
+| `GET /api/uploads` | recent jobs since the server started |
 
 - **Redacted data only.** The API reads `data/redacted/` through its manifest check, the index and `results/`. It never opens `data/raw/`.
 - **Errors** always come back as `{"error": {"code", "message"}}`, and the message says how to fix the problem, for example "The search index is not built. Run: python scripts/build_index.py". A missing index, missing calls or an unreachable answer model return 503 with a stable code.
 - **Operations:** every response carries an `X-Request-ID`. Logs are JSON lines with method, path, status and timing, never question or transcript text (a test checks this). `/api/ask` is rate limited per client (`CALLSEARCH_ASK_PER_MINUTE`, default 20) and returns 429 with `Retry-After`. Security headers include a strict Content-Security-Policy (`'self'` only, no inline scripts), `nosniff`, `no-referrer` and `frame-ancestors 'none'`.
+- **Uploads:**
+  - **Formats:** `.txt` (one call, `Agent:` / `Customer:` lines, optional `[mm:ss]`), `.jsonl` (one call per line) or `.json` (a call or a list of calls), each turn `{"speaker", "text", "start_sec"?}`. Up to 20 files of 2 MB and 200 calls per upload; `CALLSEARCH_UPLOADS_PER_MINUTE` (default 10) limits uploads per client.
+  - **Redaction first:** files are parsed and redacted in memory with the same regex + DistilBERT pipeline as the dataset, then checked again for card, SIN, account, email and phone patterns. The raw text is never written to disk or logged. Problems are reported by location only ("Line 3: Not valid JSON"), never by quoting the file.
+  - **Where calls go:** uploaded calls get ids like `up-<job>-001`, split and source `upload`, so evaluation splits are unchanged. They are appended to `data/redacted/` (with a new manifest) and added to the existing index with the index's own embedding model. With no index built yet, they are saved and become searchable on the next `build_index.py` run.
 - **Typed end to end:** `scripts/export_openapi.py` writes `web/openapi.json`, and `npm run gen:api` generates `web/src/api/schema.d.ts` from it. `test_openapi_file_matches_code` fails if the API changes without regenerating, so the frontend types cannot drift.
 - **Accessibility:**
   - **Navigation and focus:** a skip link; landmarks and labelled regions; focus moves to the page heading on navigation; a visible focus ring everywhere.
   - **Keyboard:** `/` focuses the page's search, `Enter` asks, arrow keys move through sources and tabs.
   - **Screen readers:** a live region announces answers. Redaction marks read as "redacted name", not "[PERSON]". Sortable columns expose `aria-sort`.
-  - **Display:** light and dark themes that follow the system or a toggle; reduced motion respected; no horizontal scrolling at 390 px.
-  - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page in light mode.
-- **Design:** quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
+  - **Display:** light and dark themes that follow the system or a toggle; reduced motion respected; no horizontal scrolling at 375 px; 44 px minimum touch targets.
+  - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page at 375 px and 1280 px.
+- **Design:** the standards (aesthetic, banned patterns, WCAG 2.1 AA target, voice, Lucide icons) are recorded in `.ux-profile.md`, and `AGENTS.md` points coding agents to it. Quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
 
 ## AWS: S3 + Lambda redaction (optional)
 

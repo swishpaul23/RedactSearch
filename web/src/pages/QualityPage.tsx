@@ -66,7 +66,7 @@ function LeakChart({ m }: { m: MetricsOut }) {
           </li>
         ))}
       </ul>
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Redaction results table">
         <table className="table">
           <caption className="sr-only">Redaction results on the test split</caption>
           <thead>
@@ -148,7 +148,7 @@ export function QualityPage() {
                 <section className="panel" aria-labelledby="q-guard">
                   <div className="panel-head">
                     <h2 id="q-guard">Index check</h2>
-                    <span className={m.guard.passed ? "badge badge-ok" : "badge badge-warn"}>
+                    <span className={m.guard.passed ? "status status-ok" : "status status-warn"}>
                       {m.guard.passed ? "Passed" : "Failed"}
                     </span>
                   </div>
@@ -168,7 +168,7 @@ export function QualityPage() {
                   <div className="panel-head">
                     <h2 id="q-models">Name models (fine-tuned)</h2>
                   </div>
-                  <div className="table-wrap">
+                  <div className="table-wrap" tabIndex={0} role="region" aria-label="Name models table">
                     <table className="table">
                       <caption className="sr-only">Name model size and training time</caption>
                       <thead>

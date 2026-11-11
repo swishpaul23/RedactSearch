@@ -10,7 +10,7 @@ import { Transcript } from "../components/Transcript";
 import { clock, seconds, SOURCE_LABEL, SPEAKER_LABEL, SPLIT_LABEL } from "../lib/format";
 import { useDocumentTitle, useElapsed, usePersistentState, useSlashFocus } from "../lib/hooks";
 
-type Settings = { mode: Mode; k: number; split: "" | "train" | "dev" | "test" };
+type Settings = { mode: Mode; k: number; split: "" | "train" | "dev" | "test" | "upload" };
 const DEFAULT_SETTINGS: Settings = { mode: "bm25", k: 5, split: "" };
 
 const MODE_LABEL: Record<Mode, string> = {
@@ -40,10 +40,10 @@ export function explainRejection(reason: string): string {
 }
 
 function AnswerStatus({ a }: { a: AnswerOut }) {
-  if (a.found) return <span className="badge badge-ok">Answered from {a.citations.length === 1 ? "1 call turn" : `${a.citations.length} call turns`}</span>;
+  if (a.found) return <span className="status status-ok">Answered from {a.citations.length === 1 ? "1 call turn" : `${a.citations.length} call turns`}</span>;
   const nothingToAnswer = !a.rejected || /nothing retrieved|appears nowhere/.test(a.rejected);
-  if (!nothingToAnswer) return <span className="badge badge-warn">Answer withheld</span>;
-  return <span className="badge">Not in the transcripts</span>;
+  if (!nothingToAnswer) return <span className="status status-warn">Answer withheld</span>;
+  return <span className="status">Not in the transcripts</span>;
 }
 
 function Preview({ chunkId, callId, turnId }: { chunkId: string; callId: string; turnId: number }) {
@@ -60,7 +60,7 @@ function Preview({ chunkId, callId, turnId }: { chunkId: string; callId: string;
           <h2 id={headingId}>{callId}</h2>
           {detail.data && (
             <p className="hint">
-              {SOURCE_LABEL[detail.data.source]}, {SPLIT_LABEL[detail.data.split]} split, cited turn at{" "}
+              {detail.data.split === "upload" ? "Uploaded call" : `${SOURCE_LABEL[detail.data.source]}, ${SPLIT_LABEL[detail.data.split]} split`}, cited turn at{" "}
               {clock(detail.data.turns.find((t) => t.turn_id === turnId)?.start_sec ?? 0)}
             </p>
           )}
@@ -308,6 +308,7 @@ export function AskPage() {
               <option value="train">Train split</option>
               <option value="dev">Dev split</option>
               <option value="test">Test split</option>
+              <option value="upload">Uploaded calls</option>
             </select>
           </div>
         </div>

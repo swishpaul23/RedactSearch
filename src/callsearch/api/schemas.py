@@ -11,8 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Split = Literal["train", "dev", "test"]
-Source = Literal["template", "multiwoz"]
+Split = Literal["train", "dev", "test", "upload"]
+Source = Literal["template", "multiwoz", "upload"]
+UploadStatus = Literal["queued", "redacting", "indexing", "done", "failed"]
 Mode = Literal["dense", "bm25", "hybrid"]
 Speaker = Literal["agent", "customer"]
 
@@ -179,3 +180,31 @@ class MetricsOut(BaseModel):
     rag: RagScores | None
     guard: GuardScores | None
     models: list[ModelCard]
+
+
+class UploadIssue(BaseModel):
+    where: str | None = Field(description='Location only, e.g. "Line 4". Never quotes file text.')
+    message: str
+
+
+class UploadFileReport(BaseModel):
+    name: str
+    calls: int = Field(description="Calls accepted from this file")
+    turns: int
+    issues: list[UploadIssue] = Field(description="Calls with an issue are not imported")
+
+
+class UploadJob(BaseModel):
+    id: str
+    status: UploadStatus
+    created_at: str = Field(description="ISO 8601, UTC")
+    files: list[UploadFileReport]
+    n_calls: int = Field(description="Calls accepted for redaction")
+    call_ids: list[str] = Field(description="Ids of the imported calls, once saved")
+    redactions: dict[str, int] = Field(description="Placeholders added, by type")
+    indexed: bool = Field(description="Whether the calls were added to the search index")
+    message: str | None = None
+
+
+class UploadList(BaseModel):
+    items: list[UploadJob]
