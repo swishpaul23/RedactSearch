@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from callsearch import __version__ as VERSION
-from callsearch.api.schemas import (AnswerOut, AskIn, CallDetail, CallPage, CitationOut, ErrorOut, HealthOut,
+from callsearch.api.schemas import (AgentAnswerOut, AgentIn, AgentProvenance, AgentStepOut, AnswerOut, AskIn, CallDetail, CallPage, CitationOut, ErrorOut, HealthOut,
                                     HitOut, IndexInfo, LLMInfo, MetricsOut, Mode, Provenance, SearchOut, Source,
                                     Split, UploadJob, UploadList)
 from callsearch.api.services import Services, Unavailable
@@ -143,6 +143,23 @@ def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_M
         return AnswerOut(question=a.question, answer=a.answer, found=a.found, rejected=a.rejected,
                          citations=[CitationOut(**c.__dict__) for c in a.citations], retrieved=a.retrieved,
                          provenance=Provenance(**a.provenance), elapsed_ms=round((time.perf_counter() - t0) * 1000))
+
+    @app.post("/api/agent", response_model=AgentAnswerOut, responses=ERRORS, tags=["answers"])
+    def agent(body: AgentIn, request: Request) -> AgentAnswerOut | JSONResponse:
+        client = request.client.host if request.client else "unknown"
+        wait = limiter.check(client)
+        if wait:
+            return error(429, "rate_limited", f"Too many questions. Try again in {wait} seconds.",
+                         {"Retry-After": str(wait)})
+        t0 = time.perf_counter()
+        a = svc.run_agent(body.question.strip())
+        return AgentAnswerOut(
+            question=a.question, answer=a.answer, found=a.found,
+            citations=[CitationOut(**c.__dict__) for c in a.citations], cited_calls=a.cited_calls,
+            cited_results=a.cited_results,
+            steps=[AgentStepOut(n=s.n, tool=s.tool, args=s.args, summary=s.summary, ok=s.ok, ms=s.ms) for s in a.steps],
+            rejected=a.rejected, provenance=AgentProvenance(**a.provenance), llm_calls=a.llm_calls,
+            elapsed_ms=round((time.perf_counter() - t0) * 1000))
 
     @app.get("/api/search", response_model=SearchOut, responses=ERRORS, tags=["search"])
     def search(q: str = Query(min_length=2, max_length=500), k: int = Query(10, ge=1, le=50),

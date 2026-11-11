@@ -1,6 +1,193 @@
 {
   "components": {
     "schemas": {
+      "AgentAnswerOut": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "citations": {
+            "description": "Cited turns",
+            "items": {
+              "$ref": "#/components/schemas/CitationOut"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "cited_calls": {
+            "description": "Every call the answer cites, directly or through a turn",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cited Calls",
+            "type": "array"
+          },
+          "cited_results": {
+            "description": "Steps whose statistics or report the answer cites",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cited Results",
+            "type": "array"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "llm_calls": {
+            "title": "Llm Calls",
+            "type": "integer"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/AgentProvenance"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "rejected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the answer was discarded, if it was",
+            "title": "Rejected"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AgentStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "found",
+          "citations",
+          "cited_calls",
+          "cited_results",
+          "steps",
+          "rejected",
+          "provenance",
+          "llm_calls",
+          "elapsed_ms"
+        ],
+        "title": "AgentAnswerOut",
+        "type": "object"
+      },
+      "AgentIn": {
+        "properties": {
+          "question": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AgentIn",
+        "type": "object"
+      },
+      "AgentProvenance": {
+        "properties": {
+          "max_steps": {
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retrieval": {
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Retrieval",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "prompt_version",
+          "max_steps",
+          "retrieval"
+        ],
+        "title": "AgentProvenance",
+        "type": "object"
+      },
+      "AgentStepOut": {
+        "properties": {
+          "args": {
+            "additionalProperties": true,
+            "title": "Args",
+            "type": "object"
+          },
+          "ms": {
+            "title": "Ms",
+            "type": "integer"
+          },
+          "n": {
+            "description": "Step number; the model cites statistics results as r<n>",
+            "title": "N",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "Counts and ids only, never transcript text",
+            "title": "Summary",
+            "type": "string"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tool the model called, or null for an unreadable reply",
+            "title": "Tool"
+          }
+        },
+        "required": [
+          "n",
+          "tool",
+          "args",
+          "summary",
+          "ok",
+          "ms"
+        ],
+        "title": "AgentStepOut",
+        "type": "object"
+      },
       "AnswerOut": {
         "properties": {
           "answer": {
@@ -1036,6 +1223,97 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/agent": {
+      "post": {
+        "operationId": "agent_api_agent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Agent",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
     "/api/ask": {
       "post": {
         "operationId": "ask_api_ask_post",

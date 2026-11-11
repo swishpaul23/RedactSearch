@@ -7,7 +7,7 @@ and a test fails if the committed schema drifts from the code.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -208,3 +208,41 @@ class UploadJob(BaseModel):
 
 class UploadList(BaseModel):
     items: list[UploadJob]
+
+
+AgentTool = Literal["search_calls", "get_transcript", "compute_stats", "redaction_report"]
+
+
+class AgentIn(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+
+
+class AgentStepOut(BaseModel):
+    n: int = Field(description="Step number; the model cites statistics results as r<n>")
+    tool: str | None = Field(description="Tool the model called, or null for an unreadable reply")
+    args: dict[str, Any]
+    summary: str = Field(description="Counts and ids only, never transcript text")
+    ok: bool
+    ms: int
+
+
+class AgentProvenance(BaseModel):
+    provider: str
+    model: str
+    prompt_version: str
+    max_steps: int
+    retrieval: Mode
+
+
+class AgentAnswerOut(BaseModel):
+    question: str
+    answer: str
+    found: bool
+    citations: list[CitationOut] = Field(description="Cited turns")
+    cited_calls: list[str] = Field(description="Every call the answer cites, directly or through a turn")
+    cited_results: list[int] = Field(description="Steps whose statistics or report the answer cites")
+    steps: list[AgentStepOut]
+    rejected: str | None = Field(description="Why the answer was discarded, if it was")
+    provenance: AgentProvenance
+    llm_calls: int
+    elapsed_ms: int

@@ -809,6 +809,10 @@ a:hover {
   gap: var(--space-3);
 }
 
+.composer-row > [type="submit"] {
+  margin-left: auto;
+}
+
 .disclosure-btn {
   display: inline-flex;
   align-items: center;
@@ -1262,6 +1266,131 @@ a:hover {
   .table th,
   .table td {
     padding: var(--space-2) var(--space-3);
+  }
+}
+
+/* ---------- Ask: method choice and agent steps ---------- */
+
+.method {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.segment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: center;
+  min-height: var(--hit);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.segment:hover {
+  background: var(--surface-2);
+}
+
+.segment:has(input:checked) {
+  border-color: var(--pen);
+  background: var(--pen-soft);
+}
+
+.segment:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.segment input {
+  grid-row: span 2;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--pen);
+}
+
+.segment input:focus-visible {
+  outline: none;
+}
+
+.segment-label {
+  font-weight: 700;
+}
+
+.segment-hint {
+  grid-column: 2;
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+}
+
+.agent-steps {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.agent-steps ol {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.agent-step {
+  padding-left: var(--space-1);
+}
+
+.agent-step::marker {
+  color: var(--ink-3);
+  font-weight: 700;
+}
+
+.agent-step > span {
+  display: block;
+}
+
+.agent-step-tool {
+  font-weight: 700;
+}
+
+.agent-step-args {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.agent-step-summary {
+  color: var(--ink-2);
+}
+
+.agent-step.is-off .agent-step-tool {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.agent-step-cited {
+  margin-left: var(--space-2);
+  color: var(--ok);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .segmented {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

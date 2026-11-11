@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "./schema";
 
+export type AgentAnswerOut = components["schemas"]["AgentAnswerOut"];
 export type AnswerOut = components["schemas"]["AnswerOut"];
 export type AskIn = components["schemas"]["AskIn"];
 export type CallDetail = components["schemas"]["CallDetail"];

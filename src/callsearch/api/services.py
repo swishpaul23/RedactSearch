@@ -75,6 +75,14 @@ class CallStore:
             self._calls = sorted(calls, key=lambda c: c["call_id"])
             self._by_id = {c["call_id"]: c for c in self._calls}
 
+    def all(self) -> list[dict]:
+        """Every redacted call, sorted by id (read through the manifest check)."""
+        return self._load()
+
+    @property
+    def directory(self) -> Path:
+        return self._dir
+
     def count(self) -> int:
         try:
             return len(self._load())
@@ -184,12 +192,13 @@ class ResultsReader:
 
 class Services:
     def __init__(self, calls: CallStore | None = None, index=None, answerer=None,
-                 results: ResultsReader | None = None, detector=None):
+                 results: ResultsReader | None = None, detector=None, agent=None):
         self.calls = calls or CallStore()
         self.results = results or ResultsReader()
         self._index = index
         self._answerer = answerer
         self._detector = detector
+        self._agent = agent  # factory: tools -> object with .run(question), for tests
         self._ask_lock = threading.Lock()  # one answer at a time: the local model is the bottleneck anyway
 
     @property
@@ -283,3 +292,20 @@ class Services:
             indexed = True
         return {"call_ids": [c["call_id"] for c in redacted], "redactions": dict(sorted(counts.items())),
                 "indexed": indexed}
+
+    def run_agent(self, question: str):
+        """The tool-using agent (callsearch.agent) over redacted calls, the index and saved results."""
+        from callsearch.agent.loop import Agent
+        from callsearch.agent.tools import Tools
+
+        tools = Tools(self.calls, self.require_index(), self.results)
+        agent = self._agent(tools) if self._agent is not None else Agent(tools)
+        with self._ask_lock:
+            try:
+                return agent.run(question)
+            except Unavailable:
+                raise
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
+                raise Unavailable("answer_model_unavailable",
+                                  f"The answer model could not be reached: {e}. Check that Ollama is running "
+                                  "or that CALLSEARCH_LLM_PROVIDER is set correctly.") from e

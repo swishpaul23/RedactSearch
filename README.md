@@ -271,6 +271,28 @@ python -m callsearch.eval.rag_eval --split test                   # reported num
 
 Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
 
+## Agent (multi-step questions)
+
+```powershell
+python scripts/make_agent_questions.py                 # data/questions/agent_test.jsonl (answers computed from the data)
+python -m callsearch.eval.agent_eval --compare-rag      # results/agent_eval_agent_test.json
+```
+
+Some questions need more than one search: "In the test split, do agents or customers mention parking more, and what was said?" The agent (`src/callsearch/agent/`) answers these by calling tools in a loop: it picks a tool, reads the result, and repeats until it can answer or reaches the 6-step cap. Choose **Agent** on the Ask page, or call `POST /api/agent`.
+
+| tool | what it returns |
+|---|---|
+| `search_calls(query, k, split, source)` | matching turns from the index, with turn ids |
+| `get_transcript(call_id)` | one whole redacted call |
+| `compute_stats(query, split, source)` | calls, turns and words by speaker, agent talk share, call length; with a query, matching calls and turns per speaker |
+| `redaction_report()` | saved test-split redaction scores and the index check |
+
+- **Any model:** the loop speaks plain JSON (`{"tool", "args"}` or `{"answer", "citations"}`) through the same provider interface as answering, so it runs on Ollama locally and on Claude unchanged. Replies are cached in `.cache/agent/`.
+- **Rules in code, not the prompt:** tools read only through `CallStore` (redacted data behind the manifest check), the index and `results/`; none takes a path, and `Tools` refuses a call store pointed at `data/raw/`. Arguments are validated, a repeated identical call is not re-run, and malformed replies use up a step.
+- **Citations are checked:** the answer may cite turn ids, call ids or a statistics result (`r2`) only if they appeared in a tool result during that run. Otherwise it becomes not found, as in the fixed pipeline.
+- **Evaluation:** 20 multi-step test-split questions in six types (speaker comparison, count plus example, locate then read the call, report plus statistics, three tools, unanswerable), each with expected tools and answers computed from the data. The eval reports tool-selection accuracy (and in order), task success, average steps and step-cap hits; `--compare-rag` also runs the 54 single-step questions through the agent next to the fixed pipeline's saved scores.
+- **PII guard:** `test_agent_never_sees_or_returns_planted_values` redacts calls with planted names, cards and emails, runs every tool while any attempt to open `data/raw` fails the test, and checks that no planted value appears in tool results, prompts, the answer or the step trace.
+
 ## Web app
 
 ```powershell
@@ -299,6 +321,7 @@ FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React R
 | route | |
 |---|---|
 | `GET /api/health` | calls loaded, index status, answer model |
+| `POST /api/agent` | `{question}` → answer, cited turns, calls and statistics results, every step the agent took |
 | `POST /api/ask` | `{question, k, mode, split}` → cited answer, citations, discard reason, provenance, timing |
 | `GET /api/search` | retrieval only, no LLM |
 | `GET /api/calls` | `q`, `split`, `source`, `sort`, `order`, `page`, `page_size` |

@@ -31,7 +31,7 @@ test("asks with Enter, shows the cited answer and the transcript with the cited 
   await user.type(box, "What is the postcode of the Cambridge Arts Theatre?{Enter}");
 
   expect(await screen.findByText("Its postcode is cb23pj.")).toBeInTheDocument();
-  expect(screen.getByText("Answered from 2 call turns")).toBeInTheDocument();
+  expect(screen.getByText("Answered from 2 sources")).toBeInTheDocument();
   const body = await (fetch.mock.calls.find(([r]) => (r as Request).method === "POST")![0] as Request).json();
   expect(body).toEqual({ question: "What is the postcode of the Cambridge Arts Theatre?", k: 5, mode: "bm25", split: null });
 
@@ -39,7 +39,7 @@ test("asks with Enter, shows the cited answer and the transcript with the cited 
   const cited = within(transcript).getAllByRole("listitem").find((li) => li.getAttribute("aria-current") === "true");
   expect(cited).toHaveTextContent("Cambridge Arts Theatre");
   expect(screen.getByRole("link", { name: "Open full call call_0171" })).toHaveAttribute("href", "/calls/call_0171?turn=2");
-  expect(screen.getByText("Answer ready, citing 2 call turns.")).toBeInTheDocument(); // live region
+  expect(screen.getByText("Answer ready, citing 2 sources.")).toBeInTheDocument(); // live region
 });
 
 test("arrow keys move between sources and Enter moves focus to the transcript", async () => {
