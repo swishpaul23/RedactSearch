@@ -317,6 +317,8 @@ python scripts/pull_redacted.py --bucket "$(terraform -chdir=infra/terraform out
 python scripts/build_index.py; python -m callsearch.rag.guard --allow-person-leaks
 ```
 
+**Deployed run** (us-west-2, 3,008 MB, 16 batches of 25 calls): all 400 calls were redacted, with the batches running in parallel and finishing within about 30 seconds of each other. One batch (311 turns) took 147 s on a cold start and used 943 MB. The pulled output is byte-identical to the local `callsearch.redact.export --detector pipeline_hf` run (same sha256; 0 of 5,186 turns differ), so the cloud and local pipelines redact the same way.
+
 **Cost:** S3, Lambda and the AWS-managed KMS key cost cents at this scale. The main standing cost is ECR storage for the image (roughly 2 GB). The budget alarm emails at 80% of $5. `terraform destroy` removes everything, including both buckets and their contents.
 
 ## Data and results layout
