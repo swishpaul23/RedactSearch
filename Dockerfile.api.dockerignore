@@ -5,7 +5,7 @@
 !requirements-api.txt
 !src/
 !docker/api-start.sh
-!models/ner_distilbert/
+!scripts/export_onnx.py
 !data/redacted/
 !data/index/
 !results/
