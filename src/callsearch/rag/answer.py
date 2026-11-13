@@ -24,13 +24,13 @@ callsearch.redact.llm (CALLSEARCH_LLM_PROVIDER = anthropic | ollama). Replies ar
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from callsearch.rag.bm25 import terms
+from callsearch.reply_cache import ReplyCache, reply_key
 
 NOT_FOUND = "NOT_FOUND"
 CACHE_DIR = Path(".cache/answers")
@@ -225,16 +225,15 @@ class Answerer:
 
     def _complete(self, user: str) -> str:
         p = self.provider
-        key = hashlib.sha256(f"{p.name}\0{p.model}\0{self.prompt_version}\0{user}".encode("utf-8")).hexdigest()
-        path = None if self.cache_dir is None else self.cache_dir / key[:2] / f"{key}.json"
-        if path is not None and path.exists():
+        key = reply_key(p.name, p.model, self.prompt_version, user)
+        cache = ReplyCache(self.cache_dir)
+        cached = cache.get(key)
+        if cached is not None:
             self.cache_hits += 1
-            return json.loads(path.read_text(encoding="utf-8"))["response"]
+            return cached
         self.requests += 1
         raw = p.complete(PROMPTS[self.prompt_version], user)
-        if path is not None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"response": raw}), encoding="utf-8")
+        cache.put(key, raw)
         return raw
 
     def ask(self, question: str, split: str | None = None) -> Answer:

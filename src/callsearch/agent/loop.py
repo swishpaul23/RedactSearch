@@ -14,7 +14,6 @@ Rules enforced here, not by the prompt:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import time
@@ -23,6 +22,7 @@ from pathlib import Path
 
 from callsearch.agent.tools import TOOL_NAMES, ToolResult, Tools
 from callsearch.rag.answer import NOT_FOUND, Citation
+from callsearch.reply_cache import ReplyCache, reply_key
 
 CACHE_DIR = Path(".cache/agent")
 MAX_STEPS = 6
@@ -147,16 +147,15 @@ class Agent:
 
     def _complete(self, user: str) -> str:
         p = self.provider
-        key = hashlib.sha256(f"{p.name}\0{p.model}\0agent-{self.prompt_version}\0{user}".encode()).hexdigest()
-        path = None if self.cache_dir is None else self.cache_dir / key[:2] / f"{key}.json"
-        if path is not None and path.exists():
+        key = reply_key(p.name, p.model, f"agent-{self.prompt_version}", user)
+        cache = ReplyCache(self.cache_dir)
+        cached = cache.get(key)
+        if cached is not None:
             self.cache_hits += 1
-            return json.loads(path.read_text(encoding="utf-8"))["response"]
+            return cached
         self.requests += 1
         raw = p.complete(PROMPTS[self.prompt_version], user)
-        if path is not None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"response": raw}), encoding="utf-8")
+        cache.put(key, raw)
         return raw
 
     def _finish(self, question, obj, steps, llm_calls) -> AgentAnswer:
