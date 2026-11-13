@@ -44,3 +44,34 @@ variable "lambda_timeout_s" {
   type        = number
   default     = 600
 }
+
+variable "api_image_tag" {
+  description = "Tag of the web API image (Dockerfile.api) in ECR. Leave empty until that image is pushed."
+  type        = string
+  default     = ""
+}
+
+variable "anthropic_api_key" {
+  description = "Key the API uses for answers. Set it with the TF_VAR_anthropic_api_key environment variable, not in a file. Terraform state holds it in plain text, which is why state stays local and gitignored."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "api_memory_mb" {
+  description = "API Lambda memory. CPU scales with memory; model loading and BM25 run on CPU."
+  type        = number
+  default     = 3008
+}
+
+variable "api_timeout_s" {
+  description = "API Lambda timeout. Vercel stops waiting for a proxied request after 120 seconds."
+  type        = number
+  default     = 120
+}
+
+variable "api_ask_per_minute" {
+  description = "Questions per minute per visitor (per warm instance)."
+  type        = number
+  default     = 10
+}

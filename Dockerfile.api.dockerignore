@@ -1,0 +1,16 @@
+# Allow-list for Dockerfile.api: what the API reads, nothing else. data/raw, labels, .env and the
+# LLM redaction cache never enter the image.
+*
+!pyproject.toml
+!requirements-api.txt
+!src/
+!docker/api-start.sh
+!models/ner_distilbert/
+!data/redacted/
+!data/index/
+!results/
+!.cache/answers/
+!.cache/agent/
+**/__pycache__
+**/*.pyc
+**/.gitkeep

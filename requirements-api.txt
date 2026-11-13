@@ -1,0 +1,12 @@
+# What the web API imports at run time (Dockerfile.space installs this, not requirements.txt).
+# Leaves out the eval and training stack: spaCy, Presidio, boto3, pytest.
+# torch comes from the CPU index in Dockerfile.space, so it is not listed here.
+faker==40.43.0
+anthropic==1.15.0
+python-dotenv==1.2.4
+transformers==5.22.1
+sentence-transformers==6.2.0
+chromadb==1.5.9
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.32

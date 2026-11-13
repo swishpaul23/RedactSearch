@@ -347,6 +347,32 @@ FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React R
   - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page at 375 px and 1280 px.
 - **Design:** the standards (aesthetic, banned patterns, WCAG 2.1 AA target, voice, Lucide icons) are recorded in `.ux-profile.md`, and `AGENTS.md` points coding agents to it. Quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
 
+## Deploy: Vercel + Lambda
+
+```
+browser ──► Vercel (web/dist) ──/api/*──► Lambda function URL ──► uvicorn + FastAPI (Dockerfile.api)
+```
+
+- **API on Lambda** (`Dockerfile.api`, `infra/terraform/api.tf`): the same FastAPI app as local, run by the [AWS Lambda Web Adapter](https://github.com/aws/aws-lambda-web-adapter), so there is no Lambda-specific code. The image installs `requirements-api.txt` (the API's run-time packages only: no spaCy, Presidio or boto3), CPU torch and the `bge-small` query embedder. The model, redacted calls, index, results and cached replies are baked in, chosen by an allow-list (`Dockerfile.api.dockerignore`), so raw data cannot enter the image. Lambda's disk is read-only except `/tmp`, so `docker/api-start.sh` copies the parts the app writes there. The role can write logs and nothing else.
+- **Uploads are off** (`CALLSEARCH_UPLOADS=off`, 503 `uploads_disabled`): Lambda freezes the process after each response, so a background job cannot finish. Run locally to upload.
+- **Vercel** (`web/vercel.json`): serves `web/dist` and rewrites `/api/*` to the function URL, so the browser talks to one origin and the CSP stays `connect-src 'self'`. Vercel waits up to 120 s for a proxied response, which is also the Lambda timeout.
+- **Cost:** nothing while idle; requests use Lambda's free tier at demo traffic. The first request after an idle spell starts a new instance (a cold start of several seconds). The Anthropic key is a Lambda environment variable, so set a spend limit in the Anthropic console.
+
+```powershell
+cd infra/terraform
+terraform apply                                       # creates the callsearch-api ECR repo; the redaction Lambda is unchanged
+$ECR = terraform output -raw api_ecr_repository_url
+cd ../..
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
+docker build -f Dockerfile.api --platform linux/amd64 --provenance=false -t "${ECR}:v1" .
+docker push "${ECR}:v1"
+$env:TF_VAR_anthropic_api_key = "<key>"               # kept out of files; Terraform state (local, gitignored) holds it
+cd infra/terraform                                    # set api_image_tag = "v1" in terraform.tfvars, then:
+terraform apply; terraform output api_url
+```
+
+Then put the function URL's host in `web/vercel.json`, push, and in Vercel import the repo with **Root Directory** `web`.
+
 ## AWS: S3 + Lambda redaction (optional)
 
 ```text

@@ -4,6 +4,10 @@ alert_email = "you@example.com"
 # Leave empty for the first apply. After pushing the image, set it to that tag and apply again.
 image_tag = ""
 
+# Web API (Dockerfile.api): leave empty until its image is pushed. The Anthropic key goes in the
+# TF_VAR_anthropic_api_key environment variable, never in this file.
+api_image_tag = ""
+
 # region             = "us-west-2"
 # monthly_budget_usd = 5
 # raw_retention_days = 7

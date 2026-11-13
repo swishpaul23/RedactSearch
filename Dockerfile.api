@@ -1,0 +1,47 @@
+# Web API on Lambda: the FastAPI app as it runs locally, behind a function URL (infra/terraform/api.tf).
+#
+# docker build -f Dockerfile.api --platform linux/amd64 --provenance=false -t callsearch-api:v1 .
+#
+# The AWS Lambda Web Adapter turns each function URL request into an HTTP request to uvicorn, so
+# the app needs no Lambda code. The build context comes from Dockerfile.api.dockerignore (an
+# allow-list): the model, the redacted calls, the index, results and cached replies. Never raw data.
+FROM public.ecr.aws/docker/library/python:3.12-slim
+
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
+
+# CPU wheel from the PyTorch index; the PyPI wheel pulls ~3 GB of CUDA libraries.
+RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+COPY requirements-api.txt /tmp/requirements-api.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-api.txt
+
+# Bake the query embedder in, so nothing downloads at run time.
+ENV HF_HOME=/opt/hf
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')" \
+ && chmod -R a+rX /opt/hf
+
+WORKDIR /app
+COPY pyproject.toml ./
+COPY src ./src
+RUN pip install --no-cache-dir --no-deps . && rm -rf build src/*.egg-info
+
+COPY models/ner_distilbert ./models/ner_distilbert
+COPY data/redacted ./data/redacted
+COPY data/index ./data/index
+COPY results ./results
+COPY .cache ./.cache
+COPY docker/api-start.sh ./start.sh
+
+# Lambda's disk is read-only except /tmp; start.sh copies what the app writes to /tmp/app.
+ENV HOME=/tmp \
+    HF_HOME=/tmp/hf \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    TOKENIZERS_PARALLELISM=false \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    CALLSEARCH_UPLOADS=off \
+    AWS_LWA_PORT=8080 \
+    AWS_LWA_READINESS_CHECK_PATH=/api/health \
+    AWS_LWA_ASYNC_INIT=true
+
+CMD ["sh", "/app/start.sh"]
