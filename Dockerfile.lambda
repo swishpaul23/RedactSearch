@@ -1,0 +1,27 @@
+# Redaction Lambda: regex + fine-tuned DistilBERT (pipeline_hf), CPU only.
+#
+# docker build -f Dockerfile.lambda --platform linux/amd64 --provenance=false -t callsearch-redact:v1 .
+#
+# --provenance=false: Lambda rejects the multi-manifest image index that BuildKit makes by default.
+# Needs models/ner_distilbert/ (python scripts/train_ner_hf.py) in the build context.
+FROM public.ecr.aws/lambda/python:3.12
+
+# The model is baked in: no Hub downloads at run time, and the only writable disk is /tmp.
+ENV HF_HOME=/tmp/hf \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    NER_MODEL_DIR=/var/task/models/ner_distilbert \
+    TOKENIZERS_PARALLELISM=false
+
+# CPU wheel from the PyTorch index; the PyPI wheel pulls ~3 GB of CUDA libraries.
+RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --no-cache-dir transformers==5.22.1
+
+# Only the callsearch package (its other dependencies are not needed to redact).
+COPY pyproject.toml /tmp/build/pyproject.toml
+COPY src /tmp/build/src
+RUN pip install --no-cache-dir --no-deps /tmp/build && rm -rf /tmp/build
+
+COPY models/ner_distilbert ${LAMBDA_TASK_ROOT}/models/ner_distilbert
+
+CMD ["callsearch.aws.handler.handler"]

@@ -1,0 +1,2084 @@
+{
+  "components": {
+    "schemas": {
+      "AgentAnswerOut": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "citations": {
+            "description": "Cited turns",
+            "items": {
+              "$ref": "#/components/schemas/CitationOut"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "cited_calls": {
+            "description": "Every call the answer cites, directly or through a turn",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cited Calls",
+            "type": "array"
+          },
+          "cited_results": {
+            "description": "Steps whose statistics or report the answer cites",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cited Results",
+            "type": "array"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "llm_calls": {
+            "title": "Llm Calls",
+            "type": "integer"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/AgentProvenance"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "rejected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the answer was discarded, if it was",
+            "title": "Rejected"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AgentStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "found",
+          "citations",
+          "cited_calls",
+          "cited_results",
+          "steps",
+          "rejected",
+          "provenance",
+          "llm_calls",
+          "elapsed_ms"
+        ],
+        "title": "AgentAnswerOut",
+        "type": "object"
+      },
+      "AgentIn": {
+        "properties": {
+          "question": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AgentIn",
+        "type": "object"
+      },
+      "AgentProvenance": {
+        "properties": {
+          "max_steps": {
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retrieval": {
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Retrieval",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "prompt_version",
+          "max_steps",
+          "retrieval"
+        ],
+        "title": "AgentProvenance",
+        "type": "object"
+      },
+      "AgentStepOut": {
+        "properties": {
+          "args": {
+            "additionalProperties": true,
+            "title": "Args",
+            "type": "object"
+          },
+          "ms": {
+            "title": "Ms",
+            "type": "integer"
+          },
+          "n": {
+            "description": "Step number; the model cites statistics results as r<n>",
+            "title": "N",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "Counts and ids only, never transcript text",
+            "title": "Summary",
+            "type": "string"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tool the model called, or null for an unreadable reply",
+            "title": "Tool"
+          }
+        },
+        "required": [
+          "n",
+          "tool",
+          "args",
+          "summary",
+          "ok",
+          "ms"
+        ],
+        "title": "AgentStepOut",
+        "type": "object"
+      },
+      "AnswerOut": {
+        "properties": {
+          "answer": {
+            "description": "The answer, or NOT_FOUND",
+            "title": "Answer",
+            "type": "string"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationOut"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "elapsed_ms": {
+            "title": "Elapsed Ms",
+            "type": "integer"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "rejected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why a model reply was discarded, if it was",
+            "title": "Rejected"
+          },
+          "retrieved": {
+            "description": "Matched chunk ids in rank order",
+            "items": {
+              "type": "string"
+            },
+            "title": "Retrieved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "found",
+          "rejected",
+          "citations",
+          "retrieved",
+          "provenance",
+          "elapsed_ms"
+        ],
+        "title": "AnswerOut",
+        "type": "object"
+      },
+      "AskIn": {
+        "properties": {
+          "k": {
+            "default": 5,
+            "description": "Excerpts given to the answer model",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "K",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "bm25",
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "enum": [
+                  "train",
+                  "dev",
+                  "test",
+                  "upload"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Restrict retrieval to one data split",
+            "title": "Split"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AskIn",
+        "type": "object"
+      },
+      "Body_upload_api_uploads_post": {
+        "properties": {
+          "files": {
+            "description": ".jsonl, .json or .txt",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_api_uploads_post",
+        "type": "object"
+      },
+      "CallDetail": {
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "duration_sec": {
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "redactions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Placeholder counts by type",
+            "title": "Redactions",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "template",
+              "multiwoz",
+              "upload"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "split": {
+            "enum": [
+              "train",
+              "dev",
+              "test",
+              "upload"
+            ],
+            "title": "Split",
+            "type": "string"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnOut"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "call_id",
+          "split",
+          "source",
+          "duration_sec",
+          "turns",
+          "redactions"
+        ],
+        "title": "CallDetail",
+        "type": "object"
+      },
+      "CallPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CallSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "CallPage",
+        "type": "object"
+      },
+      "CallSummary": {
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "duration_sec": {
+            "description": "Start time of the last turn",
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "n_turns": {
+            "title": "N Turns",
+            "type": "integer"
+          },
+          "preview": {
+            "description": "Opening customer turn, redacted",
+            "title": "Preview",
+            "type": "string"
+          },
+          "redactions": {
+            "description": "Placeholders in the transcript",
+            "title": "Redactions",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "template",
+              "multiwoz",
+              "upload"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "split": {
+            "enum": [
+              "train",
+              "dev",
+              "test",
+              "upload"
+            ],
+            "title": "Split",
+            "type": "string"
+          }
+        },
+        "required": [
+          "call_id",
+          "split",
+          "source",
+          "n_turns",
+          "duration_sec",
+          "redactions",
+          "preview"
+        ],
+        "title": "CallSummary",
+        "type": "object"
+      },
+      "CitationOut": {
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "snippet": {
+            "description": "The cited turn, redacted",
+            "title": "Snippet",
+            "type": "string"
+          },
+          "speaker": {
+            "enum": [
+              "agent",
+              "customer"
+            ],
+            "title": "Speaker",
+            "type": "string"
+          },
+          "start_sec": {
+            "title": "Start Sec",
+            "type": "number"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "call_id",
+          "turn_id",
+          "speaker",
+          "start_sec",
+          "snippet"
+        ],
+        "title": "CitationOut",
+        "type": "object"
+      },
+      "DetectorScore": {
+        "properties": {
+          "detector": {
+            "title": "Detector",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "leak_rate": {
+            "description": "Share of all labeled values left verbatim",
+            "title": "Leak Rate",
+            "type": "number"
+          },
+          "person_f1": {
+            "title": "Person F1",
+            "type": "number"
+          },
+          "person_leak_rate": {
+            "title": "Person Leak Rate",
+            "type": "number"
+          },
+          "person_precision": {
+            "title": "Person Precision",
+            "type": "number"
+          },
+          "person_recall": {
+            "title": "Person Recall",
+            "type": "number"
+          },
+          "structured_recall": {
+            "description": "Recall over email, phone, card, SIN and account",
+            "title": "Structured Recall",
+            "type": "number"
+          }
+        },
+        "required": [
+          "detector",
+          "label",
+          "person_precision",
+          "person_recall",
+          "person_f1",
+          "person_leak_rate",
+          "leak_rate",
+          "structured_recall"
+        ],
+        "title": "DetectorScore",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "description": "Stable machine-readable code, e.g. rate_limited, index_unavailable",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "description": "What went wrong and how to fix it, for people",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "GuardScores": {
+        "properties": {
+          "n_chunks": {
+            "title": "N Chunks",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "person_leaks": {
+            "title": "Person Leaks",
+            "type": "integer"
+          },
+          "person_support": {
+            "title": "Person Support",
+            "type": "integer"
+          },
+          "structured_leaks": {
+            "title": "Structured Leaks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "passed",
+          "n_chunks",
+          "structured_leaks",
+          "person_leaks",
+          "person_support"
+        ],
+        "title": "GuardScores",
+        "type": "object"
+      },
+      "HealthOut": {
+        "properties": {
+          "calls": {
+            "description": "Redacted calls available to browse",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "index": {
+            "$ref": "#/components/schemas/IndexInfo"
+          },
+          "llm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LLMInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Answer model, or null when none is configured"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "calls",
+          "index",
+          "llm"
+        ],
+        "title": "HealthOut",
+        "type": "object"
+      },
+      "HitOut": {
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "speaker": {
+            "enum": [
+              "agent",
+              "customer"
+            ],
+            "title": "Speaker",
+            "type": "string"
+          },
+          "split": {
+            "enum": [
+              "train",
+              "dev",
+              "test",
+              "upload"
+            ],
+            "title": "Split",
+            "type": "string"
+          },
+          "start_sec": {
+            "title": "Start Sec",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "call_id",
+          "turn_id",
+          "speaker",
+          "start_sec",
+          "split",
+          "text",
+          "score"
+        ],
+        "title": "HitOut",
+        "type": "object"
+      },
+      "IndexInfo": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "detector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector"
+          },
+          "embed_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embed Model"
+          },
+          "n_chunks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Chunks"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "IndexInfo",
+        "type": "object"
+      },
+      "LLMInfo": {
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model"
+        ],
+        "title": "LLMInfo",
+        "type": "object"
+      },
+      "MetricsOut": {
+        "properties": {
+          "guard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GuardScores"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelCard"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "rag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RagScores"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "redaction": {
+            "items": {
+              "$ref": "#/components/schemas/DetectorScore"
+            },
+            "title": "Redaction",
+            "type": "array"
+          },
+          "split": {
+            "const": "test",
+            "title": "Split",
+            "type": "string"
+          }
+        },
+        "required": [
+          "split",
+          "redaction",
+          "rag",
+          "guard",
+          "models"
+        ],
+        "title": "MetricsOut",
+        "type": "object"
+      },
+      "ModelCard": {
+        "properties": {
+          "dev_f1": {
+            "title": "Dev F1",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters"
+          },
+          "size_mb": {
+            "title": "Size Mb",
+            "type": "number"
+          },
+          "train_seconds": {
+            "title": "Train Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "dev_f1",
+          "size_mb",
+          "train_seconds",
+          "parameters"
+        ],
+        "title": "ModelCard",
+        "type": "object"
+      },
+      "Provenance": {
+        "properties": {
+          "grounding": {
+            "title": "Grounding",
+            "type": "boolean"
+          },
+          "k": {
+            "title": "K",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "neighbors": {
+            "title": "Neighbors",
+            "type": "integer"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retrieval": {
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Retrieval",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "prompt_version",
+          "k",
+          "retrieval",
+          "neighbors",
+          "grounding"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "RagScores": {
+        "properties": {
+          "abstention_rate": {
+            "title": "Abstention Rate",
+            "type": "number"
+          },
+          "answer_term_match": {
+            "title": "Answer Term Match",
+            "type": "number"
+          },
+          "answered_correct_call": {
+            "description": "Of the answers given, share citing the right call",
+            "title": "Answered Correct Call",
+            "type": "number"
+          },
+          "citation_accuracy": {
+            "title": "Citation Accuracy",
+            "type": "number"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "n_answerable": {
+            "title": "N Answerable",
+            "type": "integer"
+          },
+          "n_unanswerable": {
+            "title": "N Unanswerable",
+            "type": "integer"
+          },
+          "neighbors": {
+            "title": "Neighbors",
+            "type": "integer"
+          },
+          "recall_at_5": {
+            "title": "Recall At 5",
+            "type": "number"
+          },
+          "retrieval": {
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Retrieval",
+            "type": "string"
+          }
+        },
+        "required": [
+          "retrieval",
+          "neighbors",
+          "model",
+          "n_answerable",
+          "n_unanswerable",
+          "recall_at_5",
+          "citation_accuracy",
+          "answer_term_match",
+          "abstention_rate",
+          "answered_correct_call"
+        ],
+        "title": "RagScores",
+        "type": "object"
+      },
+      "SearchOut": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/HitOut"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "dense",
+              "bm25",
+              "hybrid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "mode",
+          "hits"
+        ],
+        "title": "SearchOut",
+        "type": "object"
+      },
+      "TurnOut": {
+        "properties": {
+          "speaker": {
+            "enum": [
+              "agent",
+              "customer"
+            ],
+            "title": "Speaker",
+            "type": "string"
+          },
+          "start_sec": {
+            "title": "Start Sec",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "turn_id",
+          "speaker",
+          "start_sec",
+          "text"
+        ],
+        "title": "TurnOut",
+        "type": "object"
+      },
+      "UploadFileReport": {
+        "properties": {
+          "calls": {
+            "description": "Calls accepted from this file",
+            "title": "Calls",
+            "type": "integer"
+          },
+          "issues": {
+            "description": "Calls with an issue are not imported",
+            "items": {
+              "$ref": "#/components/schemas/UploadIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "turns": {
+            "title": "Turns",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "calls",
+          "turns",
+          "issues"
+        ],
+        "title": "UploadFileReport",
+        "type": "object"
+      },
+      "UploadIssue": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "where": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location only, e.g. \"Line 4\". Never quotes file text.",
+            "title": "Where"
+          }
+        },
+        "required": [
+          "where",
+          "message"
+        ],
+        "title": "UploadIssue",
+        "type": "object"
+      },
+      "UploadJob": {
+        "properties": {
+          "call_ids": {
+            "description": "Ids of the imported calls, once saved",
+            "items": {
+              "type": "string"
+            },
+            "title": "Call Ids",
+            "type": "array"
+          },
+          "created_at": {
+            "description": "ISO 8601, UTC",
+            "title": "Created At",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/UploadFileReport"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "indexed": {
+            "description": "Whether the calls were added to the search index",
+            "title": "Indexed",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "n_calls": {
+            "description": "Calls accepted for redaction",
+            "title": "N Calls",
+            "type": "integer"
+          },
+          "redactions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Placeholders added, by type",
+            "title": "Redactions",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "redacting",
+              "indexing",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "files",
+          "n_calls",
+          "call_ids",
+          "redactions",
+          "indexed"
+        ],
+        "title": "UploadJob",
+        "type": "object"
+      },
+      "UploadList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UploadJob"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "UploadList",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Search and cited answers over redacted call transcripts. Redacted data only.",
+    "title": "RedactSearch API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/agent": {
+      "post": {
+        "operationId": "agent_api_agent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Agent",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
+    "/api/ask": {
+      "post": {
+        "operationId": "ask_api_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Ask",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
+    "/api/calls": {
+      "get": {
+        "operationId": "calls_api_calls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "split",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "train",
+                    "dev",
+                    "test",
+                    "upload"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Split"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "template",
+                    "multiwoz",
+                    "upload"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "call_id",
+              "enum": [
+                "call_id",
+                "n_turns",
+                "duration_sec",
+                "redactions"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 5,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Calls",
+        "tags": [
+          "calls"
+        ]
+      }
+    },
+    "/api/calls/{call_id}": {
+      "get": {
+        "operationId": "call_api_calls__call_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "call_id",
+            "required": true,
+            "schema": {
+              "title": "Call Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Call",
+        "tags": [
+          "calls"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "operationId": "metrics_api_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Metrics",
+        "tags": [
+          "quality"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "search_api_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 500,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "k",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "K",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "bm25",
+              "enum": [
+                "dense",
+                "bm25",
+                "hybrid"
+              ],
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "split",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "train",
+                    "dev",
+                    "test",
+                    "upload"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Split"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/uploads": {
+      "get": {
+        "operationId": "uploads_list_api_uploads_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Uploads List",
+        "tags": [
+          "uploads"
+        ]
+      },
+      "post": {
+        "operationId": "upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadJob"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/uploads/{job_id}": {
+      "get": {
+        "operationId": "upload_status_api_uploads__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadJob"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Status",
+        "tags": [
+          "uploads"
+        ]
+      }
+    }
+  }
+}

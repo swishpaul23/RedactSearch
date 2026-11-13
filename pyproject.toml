@@ -16,6 +16,10 @@ dependencies = [
     "transformers==5.22.1",
     "sentence-transformers==6.2.0",
     "chromadb==1.5.9",
+    "boto3==1.43.116",
+    "fastapi==0.162.0",
+    "uvicorn==0.54.0",
+    "httpx==0.28.1", "python-multipart==0.0.32",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,0 +1,520 @@
+{
+  "split": "dev",
+  "k": 5,
+  "retrieval": "dense",
+  "neighbors": 1,
+  "index": {
+    "embed_model": "bge-small",
+    "context_turns": 1,
+    "detector": "pipeline_hf",
+    "n_chunks": 5186
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "qwen2:7b",
+    "prompt_version": "v1",
+    "k": 5,
+    "retrieval": "dense",
+    "neighbors": 1
+  },
+  "n_answerable": 35,
+  "n_unanswerable": 8,
+  "recall@1": 0.4857,
+  "recall@3": 0.6,
+  "recall@5": 0.6571,
+  "recall@10": 0.8,
+  "turn_hit@5": 0.5714,
+  "turn_shown@5": 0.6286,
+  "mrr@10": 0.5634,
+  "answer_found": 0.9429,
+  "citation_accuracy": 0.6286,
+  "answer_term_match": 0.6857,
+  "false_not_found": 0.0571,
+  "abstention_rate": 0.25,
+  "rejected_replies": 3,
+  "llm_requests": 43,
+  "llm_cache_hits": 0,
+  "questions": [
+    {
+      "id": "dev_a01",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a02",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a03",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a04",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": true
+    },
+    {
+      "id": "dev_a05",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a06",
+      "answerable": true,
+      "rank": 10,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": true
+    },
+    {
+      "id": "dev_a07",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a08",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a09",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a10",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a11",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a12",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a13",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a14",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a15",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a16",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a17",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a18",
+      "answerable": true,
+      "rank": 7,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a19",
+      "answerable": true,
+      "rank": 8,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a20",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a21",
+      "answerable": true,
+      "rank": 9,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a22",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a23",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a24",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": true
+    },
+    {
+      "id": "dev_a25",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a26",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a27",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a28",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a29",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        4
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a30",
+      "answerable": true,
+      "rank": 8,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a31",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "dev_a32",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a33",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_a34",
+      "answerable": true,
+      "rank": 5,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "dev_a35",
+      "answerable": true,
+      "rank": 4,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": false,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "dev_u01",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "dev_u02",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    },
+    {
+      "id": "dev_u03",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    },
+    {
+      "id": "dev_u04",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    },
+    {
+      "id": "dev_u05",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "dev_u06",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    },
+    {
+      "id": "dev_u07",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    },
+    {
+      "id": "dev_u08",
+      "answerable": false,
+      "found": true,
+      "rejected": false,
+      "abstained": false
+    }
+  ]
+}

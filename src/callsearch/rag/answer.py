@@ -3,10 +3,18 @@
 python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--split test]
 
 1. Retrieve the top k redacted chunks from the index.
-2. Show them to the LLM as numbered excerpts. It must answer only from them, cite the
-   excerpt numbers it used, and reply NOT_FOUND when they do not support an answer.
+2. Show them to the LLM as numbered excerpts. With neighbors=n, each excerpt also shows the
+   n turns before and after the matched turn, since an answer often sits in the reply to the
+   turn that matched. The model must answer only from the excerpts, cite the excerpt numbers
+   it used, and reply NOT_FOUND when they do not support an answer.
 3. Server check: the reply must parse, cite at least one excerpt, and cite only excerpts
    that were retrieved. Anything else is discarded and returned as not found.
+4. Grounding check (on by default): every rare content word of the question must appear in
+   the excerpts the answer cites. "Rare" means it occurs in at most RARE_FRACTION of the
+   stored chunks: names, ids, times and unusual nouns ("sauna", "ferry"), not "hotel" or
+   "train". A word that occurs in no chunk at all cannot be supported by any excerpt, so the
+   question is answered NOT_FOUND without calling the model. The model is not trusted to
+   abstain; this is checked in code.
 
 Only redacted text from the index ever goes into a prompt. The provider comes from
 callsearch.redact.llm (CALLSEARCH_LLM_PROVIDER = anthropic | ollama). Replies are cached in
@@ -16,11 +24,13 @@ callsearch.redact.llm (CALLSEARCH_LLM_PROVIDER = anthropic | ollama). Replies ar
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from callsearch.rag.bm25 import terms
+from callsearch.reply_cache import ReplyCache, reply_key
 
 NOT_FOUND = "NOT_FOUND"
 CACHE_DIR = Path(".cache/answers")
@@ -40,7 +50,35 @@ Reply with JSON only, no other text:
 {"answer": "<one or two sentences>", "citations": [<excerpt numbers>]}
 If the excerpts do not answer the question, reply exactly:
 {"answer": "NOT_FOUND", "citations": []}"""
+PROMPTS["v2"] = """You answer questions about customer-service calls using only the numbered excerpts you are given.
+Each excerpt shows a few turns from one call. The turn marked * is the one the search matched.
+
+Decide in two steps:
+1. Find an excerpt about the same thing the question asks about. Every specific detail in the question
+   (train id, day, time, place, venue name, number of people) must match what that excerpt says.
+   An excerpt about a different train, day, venue or booking does not count, even if it looks similar.
+2. Answer only if that excerpt directly states the fact the question asks for.
+If no excerpt passes both steps, reply NOT_FOUND. NOT_FOUND is the correct reply when the excerpts do not
+contain the answer. A wrong answer is worse than NOT_FOUND.
+
+Other rules:
+- No outside knowledge, no guessing, and no combining facts from different calls.
+- Placeholders such as [PERSON], [CARD], [PHONE], [EMAIL], [SIN] and [ACCOUNT] stand for personal data
+  that was removed. Never guess what they hide, and do not count them as an answer.
+- Cite the number of every excerpt you used.
+
+Reply with JSON only, no other text:
+{"answer": "<one or two sentences>", "citations": [<excerpt numbers>]}
+If the excerpts do not answer the question, reply exactly:
+{"answer": "NOT_FOUND", "citations": []}"""
 PROMPT_VERSION = "v1"
+DEFAULT_MODE = "bm25"   # best citation accuracy on the dev questions, see README
+DEFAULT_NEIGHBORS = 1
+RARE_FRACTION = 0.001   # a question word in at most 0.1% of chunks must appear in the cited excerpts (tuned on dev)
+# Words that describe the conversation rather than its content; never required in the excerpts.
+QUESTION_WORDS = frozenset("""caller callers customer customers agent call calls ask asked asking anyone any did does do
+much many get got give given offer offered offers want wanted wants like need needed book booked booking kind type
+one tell said say suggest suggested recommend recommended match matched matching found find instead venue place""".split())
 
 
 @dataclass(frozen=True)
@@ -59,20 +97,29 @@ class Answer:
     answer: str                          # NOT_FOUND unless found
     found: bool
     citations: list[Citation]
-    retrieved: list[str]                 # chunk ids shown to the model, in rank order
+    retrieved: list[str]                 # matched chunk ids, in rank order
     rejected: str | None = None          # why a model reply was discarded, if it was
     provenance: dict = field(default_factory=dict)
+    shown: list[str] = field(default_factory=list)  # every chunk id in the prompt, neighbors included
 
     def to_dict(self) -> dict:
         return {"question": self.question, "answer": self.answer, "found": self.found,
                 "citations": [c.__dict__ for c in self.citations], "retrieved": self.retrieved,
-                "rejected": self.rejected, "provenance": self.provenance}
+                "rejected": self.rejected, "provenance": self.provenance, "shown": self.shown}
 
 
-def build_user_message(question: str, hits) -> str:
+def build_user_message(question: str, hits, windows=None) -> str:
+    """Numbered excerpts. windows[i] (optional) holds hit i plus its neighboring turns."""
     lines = [f"Question: {question}", "", "Excerpts:"]
     for i, h in enumerate(hits, 1):
-        lines.append(f"[{i}] call {h.call_id}, turn {h.turn_id}, {h.speaker} at {h.start_sec:.0f}s: {h.text}")
+        win = windows[i - 1] if windows else [h]
+        if len(win) == 1:  # the original one-line format, so earlier cached replies stay valid
+            lines.append(f"[{i}] call {h.call_id}, turn {h.turn_id}, {h.speaker} at {h.start_sec:.0f}s: {h.text}")
+            continue
+        lines.append(f"[{i}] call {h.call_id}, turns {win[0].turn_id}-{win[-1].turn_id} (matched turn {h.turn_id}):")
+        for w in win:
+            mark = "*" if w.chunk_id == h.chunk_id else " "
+            lines.append(f"  {mark} turn {w.turn_id}, {w.speaker} at {w.start_sec:.0f}s: {w.text}")
     return "\n".join(lines)
 
 
@@ -105,6 +152,17 @@ def _resolve(ref, hits) -> int | None:
     return None
 
 
+def rare_terms(question: str, df, n_chunks: int, fraction: float = RARE_FRACTION) -> list[str]:
+    """Content words of the question that occur in at most fraction of the chunks (0 included)."""
+    limit = max(1, int(fraction * n_chunks))
+    return [t for t in dict.fromkeys(terms(question)) if t not in QUESTION_WORDS and df.get(t, 0) <= limit]
+
+
+def ungrounded(required: list[str], cited_text: str) -> list[str]:
+    have = set(terms(cited_text))
+    return [t for t in required if t not in have]
+
+
 def check_reply(raw: str, hits) -> tuple[str, list[int], str | None]:
     """Server-side validation. Returns (answer, cited hit indexes, rejection reason)."""
     try:
@@ -129,12 +187,16 @@ def check_reply(raw: str, hits) -> tuple[str, list[int], str | None]:
 
 class Answerer:
     def __init__(self, index=None, provider=None, k: int = 5, prompt_version: str = PROMPT_VERSION,
-                 cache_dir: Path | None = CACHE_DIR):
+                 cache_dir: Path | None = CACHE_DIR, mode: str = DEFAULT_MODE,
+                 neighbors: int = DEFAULT_NEIGHBORS, grounding: bool = True):
         if prompt_version not in PROMPTS:
             raise KeyError(f"unknown prompt version {prompt_version!r}; known: {sorted(PROMPTS)}")
         self._index = index
         self._provider = provider
         self.k = k
+        self.mode = mode
+        self.neighbors = neighbors
+        self.grounding = grounding
         self.prompt_version = prompt_version
         self.cache_dir = cache_dir
         self.requests = 0
@@ -158,31 +220,47 @@ class Answerer:
 
     def provenance(self) -> dict:
         return {"provider": self.provider.name, "model": self.provider.model, "prompt_version": self.prompt_version,
-                "k": self.k}
+                "k": self.k, "retrieval": self.mode,
+                "neighbors": self.neighbors, "grounding": self.grounding}
 
     def _complete(self, user: str) -> str:
         p = self.provider
-        key = hashlib.sha256(f"{p.name}\0{p.model}\0{self.prompt_version}\0{user}".encode("utf-8")).hexdigest()
-        path = None if self.cache_dir is None else self.cache_dir / key[:2] / f"{key}.json"
-        if path is not None and path.exists():
+        key = reply_key(p.name, p.model, self.prompt_version, user)
+        cache = ReplyCache(self.cache_dir)
+        cached = cache.get(key)
+        if cached is not None:
             self.cache_hits += 1
-            return json.loads(path.read_text(encoding="utf-8"))["response"]
+            return cached
         self.requests += 1
         raw = p.complete(PROMPTS[self.prompt_version], user)
-        if path is not None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"response": raw}), encoding="utf-8")
+        cache.put(key, raw)
         return raw
 
     def ask(self, question: str, split: str | None = None) -> Answer:
-        hits = self.index.search(question, k=self.k, split=split)
+        hits = self.index.search(question, k=self.k, split=split, mode=self.mode)
         retrieved = [h.chunk_id for h in hits]
         if not hits:
             return Answer(question, NOT_FOUND, False, [], retrieved, "nothing retrieved", self.provenance())
-        answer, cited, rejected = check_reply(self._complete(build_user_message(question, hits)), hits)
+        required = []
+        if self.grounding:
+            df = self.index.doc_freq()
+            required = rare_terms(question, df, self.index.count())
+            unseen = [t for t in required if df.get(t, 0) == 0]
+            if unseen:
+                return Answer(question, NOT_FOUND, False, [], retrieved,
+                              f"question term {unseen[0]!r} appears nowhere in the index", self.provenance())
+        windows = self.index.with_neighbors(hits, self.neighbors) if self.neighbors else None
+        shown = [w.chunk_id for win in (windows or [[h] for h in hits]) for w in win]
+        answer, cited, rejected = check_reply(self._complete(build_user_message(question, hits, windows)), hits)
+        if cited and required:
+            cited_text = " ".join(w.text for i in cited for w in (windows[i] if windows else [hits[i]]))
+            missing = ungrounded(required, cited_text)
+            if missing:
+                answer, cited, rejected = NOT_FOUND, [], f"question term {missing[0]!r} is not in the cited excerpts"
         citations = [Citation(hits[i].chunk_id, hits[i].call_id, hits[i].turn_id, hits[i].speaker,
                               hits[i].start_sec, hits[i].text) for i in cited]
-        return Answer(question, answer, answer != NOT_FOUND, citations, retrieved, rejected, self.provenance())
+        return Answer(question, answer, answer != NOT_FOUND, citations, retrieved, rejected, self.provenance(),
+                      list(dict.fromkeys(shown)))
 
 
 def main() -> None:
@@ -191,10 +269,15 @@ def main() -> None:
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--split", choices=["train", "dev", "test"])
     p.add_argument("--prompt", default=PROMPT_VERSION, choices=sorted(PROMPTS))
+    p.add_argument("--mode", default=DEFAULT_MODE, choices=["dense", "bm25", "hybrid"], help="retrieval mode")
+    p.add_argument("--neighbors", type=int, default=DEFAULT_NEIGHBORS,
+                   help="turns shown before and after each matched turn")
+    p.add_argument("--no-grounding", action="store_true", help="skip the rare-word grounding check")
     p.add_argument("--json", action="store_true", help="print the full answer record as JSON")
     args = p.parse_args()
 
-    a = Answerer(k=args.k, prompt_version=args.prompt).ask(args.question, args.split)
+    a = Answerer(k=args.k, prompt_version=args.prompt, mode=args.mode, neighbors=args.neighbors,
+                 grounding=not args.no_grounding).ask(args.question, args.split)
     if args.json:
         print(json.dumps(a.to_dict(), indent=2))
         return
@@ -204,7 +287,8 @@ def main() -> None:
     for c in a.citations:
         print(f"  [{c.chunk_id} {c.start_sec:.0f}s {c.speaker}] {c.snippet}")
     pv = a.provenance
-    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, retrieved {len(a.retrieved)}")
+    print(f"\n{pv['provider']}:{pv['model']} prompt {pv['prompt_version']}, {pv['retrieval']} retrieval, neighbors {pv['neighbors']}, "
+          f"retrieved {len(a.retrieved)}")
 
 
 if __name__ == "__main__":

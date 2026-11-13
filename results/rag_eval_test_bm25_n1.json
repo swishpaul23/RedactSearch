@@ -1,0 +1,624 @@
+{
+  "split": "test",
+  "k": 5,
+  "retrieval": "bm25",
+  "neighbors": 1,
+  "index": {
+    "embed_model": "bge-small",
+    "context_turns": 1,
+    "detector": "pipeline_hf",
+    "n_chunks": 5186
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "qwen2:7b",
+    "prompt_version": "v1",
+    "k": 5,
+    "retrieval": "bm25",
+    "neighbors": 1,
+    "grounding": true
+  },
+  "n_answerable": 44,
+  "n_unanswerable": 10,
+  "recall@1": 0.5227,
+  "recall@3": 0.7045,
+  "recall@5": 0.8182,
+  "recall@10": 0.9091,
+  "turn_hit@5": 0.2727,
+  "turn_shown@5": 0.5909,
+  "mrr@10": 0.6394,
+  "answer_found": 0.7727,
+  "citation_accuracy": 0.6364,
+  "answer_term_match": 0.4773,
+  "false_not_found": 0.2273,
+  "abstention_rate": 1.0,
+  "rejected_replies": 17,
+  "llm_requests": 45,
+  "llm_cache_hits": 0,
+  "questions": [
+    {
+      "id": "test_a01",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a02",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a03",
+      "answerable": true,
+      "rank": 7,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a04",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a05",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a06",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a07",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a08",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a09",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        6
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a10",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a11",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a12",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a13",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a14",
+      "answerable": true,
+      "rank": 5,
+      "turn_ranks": [
+        5
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a15",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a16",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a17",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a18",
+      "answerable": true,
+      "rank": 8,
+      "turn_ranks": [
+        8
+      ],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a19",
+      "answerable": true,
+      "rank": 5,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a20",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a21",
+      "answerable": true,
+      "rank": 5,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a22",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a23",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a24",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a25",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a26",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a27",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a28",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a29",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [
+        2
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a30",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a31",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a32",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": true,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a33",
+      "answerable": true,
+      "rank": 4,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a34",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a35",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a36",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a37",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": false
+    },
+    {
+      "id": "test_a38",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        6
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a39",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a40",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a41",
+      "answerable": true,
+      "rank": 7,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": false,
+      "rejected": true,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_a42",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        3
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a43",
+      "answerable": true,
+      "rank": 4,
+      "turn_ranks": [
+        5
+      ],
+      "turn_shown": true,
+      "found": true,
+      "rejected": false,
+      "citation_ok": true,
+      "term_match": true
+    },
+    {
+      "id": "test_a44",
+      "answerable": true,
+      "rank": 8,
+      "turn_ranks": [],
+      "turn_shown": false,
+      "found": true,
+      "rejected": false,
+      "citation_ok": false,
+      "term_match": false
+    },
+    {
+      "id": "test_u01",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u02",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u03",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u04",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u05",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u06",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u07",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u08",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u09",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    },
+    {
+      "id": "test_u10",
+      "answerable": false,
+      "found": false,
+      "rejected": true,
+      "abstained": true
+    }
+  ]
+}

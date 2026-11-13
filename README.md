@@ -184,6 +184,12 @@ python -m callsearch.rag.store "customer wants a refund" -k 5
 - **Chunks:** one chunk per speaker turn, with id `<call_id>:<turn_id>` and the speaker, start time, split and source as metadata. The embedded text includes the previous turn (`--context-turns 1`), so a short reply like "yes, that one" keeps what it answers. The stored and displayed text is the turn alone.
 - **Embeddings:** sentence-transformers, `BAAI/bge-small-en-v1.5` by default (`--model minilm` for `all-MiniLM-L6-v2`). Vectors are normalised, and queries get BGE's search prefix. The collection records the model, so queries always use the model that built the index.
 - **Store:** Chroma, persistent in `data/index/chroma/`, with cosine distance. Rebuilding replaces the collection.
+- **Search modes** (`--mode` on `callsearch.rag.store`, `callsearch.rag.answer` and `rag_eval`):
+  - `dense`: embeddings only.
+  - `bm25`: keyword scoring (Okapi BM25, k1 1.5, b 0.75), built in memory from the stored documents. The tokenizer keeps times, prices and ids whole (`05:00`, `18.88`, `tr7423`) and drops placeholders, so redacted data never becomes a match key.
+  - `hybrid`: the top 50 of each list fused with reciprocal rank fusion (`1 / (60 + rank)`, summed over both lists).
+
+  Dense embeddings blur exact tokens such as train ids, times and venue names, and BM25 matches only those tokens, so the two miss different questions.
 - **Index guard** (`callsearch.rag.guard`):
   1. A pattern scan of every stored document with the regex layer. On a regex-based redactor this is a check against bugs and hand edits, not an independent detector.
   2. A planted-value scan: every labeled value from `data/raw/` is looked up verbatim in the stored text of its own turn. This is the same leak test `redaction_eval` uses, applied to what is actually in the index. It is evaluation-only and the one place outside the eval scripts that reads raw data.
@@ -194,15 +200,202 @@ python -m callsearch.rag.store "customer wants a refund" -k 5
 
 ```powershell
 $env:CALLSEARCH_LLM_PROVIDER="ollama"; $env:CALLSEARCH_OLLAMA_MODEL="qwen2:7b"   # or anthropic
-python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--split test] [--json]
+python -m callsearch.rag.answer "Why did the customer want a refund?" -k 5 [--mode bm25] [--neighbors 1] [--prompt v1] [--split test] [--json]
 ```
 
 1. The top `k` chunks come from the index. They are already redacted, and nothing else ever goes into the prompt.
 2. The model sees them as numbered excerpts (call id, turn, speaker, time, text). It must answer from them only, cite the excerpt numbers it used, treat placeholders as removed data, and reply `NOT_FOUND` when the excerpts do not answer the question.
 3. **Server check:** the reply must parse as JSON, cite at least one excerpt, and cite only excerpts that were retrieved. A reply that fails any of these is discarded, returned as `NOT_FOUND`, and the reason is recorded in `rejected`. A model that says `NOT_FOUND` is a valid outcome, not a rejection.
-4. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
+4. **Grounding check** (on by default, `--no-grounding` to skip): every rare content word of the question must appear in the excerpts the answer cites. "Rare" means it occurs in at most 0.1% of stored chunks: venue names, ids, times and unusual nouns such as "sauna" or "ferry", but not "hotel" or "train". A question word that occurs in no chunk at all cannot be supported by any excerpt, so the answer is `NOT_FOUND` without calling the model. This was added because `qwen2:7b` ignored instructions to abstain (prompt v2 made no difference). On dev, 7 of 8 unanswerable questions got invented answers ("Warkworth House offers a sauna") or claims about all calls based on 5 excerpts ("No one asked about a ferry"). In each case the question's key word was missing from the cited excerpt. The 0.1% threshold was chosen on dev.
+5. With `--neighbors n`, each excerpt also shows the `n` turns before and after the matched turn, with the matched turn marked. An answer often sits in the reply to the turn that matched. For example, the customer's turn names the restaurant and the agent's next turn gives the price. Citations still point at matched turns.
+6. The response gives the answer plus, for each citation, the call id, turn id, speaker, start time and redacted snippet.
 
 The provider is the one the LLM redaction layer uses (`CALLSEARCH_LLM_PROVIDER`), so Claude and a local Ollama model are interchangeable. Replies are cached in `.cache/answers/`, keyed by provider, model, prompt version, question and retrieved chunks, so eval reruns are free. Prompts are versioned in `PROMPTS` like the redaction prompts.
+
+## RAG eval (Phase 3)
+
+```powershell
+python -m callsearch.eval.rag_eval --split dev --retrieval-only   # fast, no LLM
+python -m callsearch.eval.rag_eval --split dev                    # + cited answers
+python -m callsearch.eval.rag_eval --split test                   # reported numbers, run once
+```
+
+**Question sets** (`data/questions/rag_<split>.jsonl`, hand-written, in git): dev has 35 answerable + 8 unanswerable questions for tuning, and test has 44 + 10 for reported numbers. The first 15 + 5 dev questions were run before the set was extended and are kept unchanged. Two of them (`dev_a06`, `dev_a13`) put the call's distinguishing detail only in the answer, not in the question, so no retriever can be expected to find them. The later questions carry that detail in the question itself. Each answerable question names its gold call and turns, a list of `evidence` phrases, and `answer_terms` a correct answer should contain. Unanswerable questions list `absent` phrases that no stored turn contains.
+
+**Validation before scoring:** the eval checks every question against the text actually stored in the index. The evidence must be in the gold call, the gold turns must exist, and no other call may contain all the evidence phrases. Without this check, a question about a template call would have dozens of right answers, because the 5 templates repeat their phrasing word for word across calls. Unanswerable questions must have no turn containing their `absent` phrases. If any question fails, the run stops and lists it. Answerable questions are drawn from MultiWOZ calls only, since template calls differ almost only in their (redacted) personal data.
+
+**Metrics.** Retrieval searches the whole index (all splits), as a user would.
+
+| metric | meaning |
+|---|---|
+| recall@1/3/5/10 | a chunk from the gold call is in the top n |
+| turn_hit@k | a gold turn itself is in the top k |
+| turn_shown@k | a gold turn is in the top k or within `--neighbors` turns of a top-k hit, so the model sees the answer turn |
+| mrr@10 | mean of 1 / rank of the gold call's first chunk |
+| answer_found | answerable questions that got an answer (not NOT_FOUND) |
+| citation_accuracy | the answer cites a chunk from the gold call |
+| answer_term_match | the answer text contains an expected term (a string check; an LLM judge comes later) |
+| false_not_found | answerable questions answered NOT_FOUND |
+| abstention_rate | unanswerable questions answered NOT_FOUND |
+
+**Dev results** (`qwen2:7b`, prompt v1, k 5, bge-small index with 1 context turn). The first row is the original setup, and the defaults are now `--mode bm25 --neighbors 1`.
+
+| retrieval | neighbors | recall@5 | turn_shown@5 | citation_accuracy | answer_term_match | abstention_rate |
+|---|---:|---:|---:|---:|---:|---:|
+| dense | 0 | 0.657 | 0.571 | 0.571 | 0.629 | 0.625 |
+| dense | 1 | 0.657 | 0.629 | 0.629 | 0.686 | 0.250 |
+| **bm25** | **1** | **0.914** | **0.714** | **0.771** | **0.686** | 0.125 |
+| hybrid | 1 | 0.771 | 0.657 | 0.686 | 0.657 | 0.125 |
+| **bm25 + grounding check** | **1** | **0.914** | **0.714** | **0.714** | **0.629** | **1.000** |
+
+- BM25 finds the right call most often. Neighbouring turns then let the model see the answer, which is usually in the reply to the matched turn.
+- With more context, the v1 prompt almost never says NOT_FOUND on unanswerable questions (1 of 8). Prompt v2, which tells the model to check every detail first, changed nothing (1 of 8) and lost 2 correct answers, so v1 stays.
+- The grounding check (default) turns all 8 unanswerable questions into NOT_FOUND. It also turns 5 answerable ones into NOT_FOUND: 3 of those answers cited the wrong call anyway, 1 question names a surname the redactor masked, and 1 is a real loss (`dev_a26`: the venue name is two turns before the answer, outside the one-turn window). When the system answers, it is right 25 of 27 times (93%), against 27 of 32 (84%) without the check.
+- **Caveats:** the dev set has 35 + 8 questions, so one question moves a rate by 3 or 12.5 points. The questions also name exact details (train ids, reference numbers), which favours keyword search; vaguer real-world questions may favour dense or hybrid.
+
+**Test results** (run once, with the setup chosen on dev: bm25, 1 neighbour, prompt v1, grounding check, `qwen2:7b`, k 5):
+
+| metric | dev | test |
+|---|---:|---:|
+| recall@5 | 0.914 | 0.818 |
+| turn_shown@5 | 0.714 | 0.591 |
+| citation_accuracy | 0.714 | 0.636 (28/44) |
+| answer_term_match | 0.629 | 0.477 (21/44) |
+| false_not_found | 0.229 | 0.227 |
+| abstention_rate | 1.000 | 1.000 (10/10) |
+| answers citing the right call, of those given | 25/27 (93%) | 28/34 (82%) |
+
+- Test is lower than dev on every answerable metric. That is the usual cost of choosing the setup on dev, with small sets (one test question is 2.3 points).
+- Abstention held at 10 of 10, so the grounding check generalises to unseen unanswerable questions.
+- `answer_term_match` is a plain string check. 7 answers cite the right call but miss the expected string, and some of those may be correct in other words (an LLM judge is planned). The score should be read as a lower bound.
+
+Results go to `results/rag_eval_<split>.json` (with a `_retrieval` suffix when run with `--retrieval-only`). They hold the index and LLM provenance, the metrics, and per-question ids with outcomes. No text.
+
+## Agent (multi-step questions)
+
+```powershell
+python scripts/make_agent_questions.py                 # data/questions/agent_test.jsonl (answers computed from the data)
+python -m callsearch.eval.agent_eval --compare-rag      # results/agent_eval_agent_test.json
+```
+
+Some questions need more than one search: "In the test split, do agents or customers mention parking more, and what was said?" The agent (`src/callsearch/agent/`) answers these by calling tools in a loop: it picks a tool, reads the result, and repeats until it can answer or reaches the 6-step cap. Choose **Agent** on the Ask page, or call `POST /api/agent`.
+
+| tool | what it returns |
+|---|---|
+| `search_calls(query, k, split, source)` | matching turns from the index, with turn ids |
+| `get_transcript(call_id)` | one whole redacted call |
+| `compute_stats(query, split, source)` | calls, turns and words by speaker, agent talk share, call length; with a query, matching calls and turns per speaker |
+| `redaction_report()` | saved test-split redaction scores and the index check |
+
+- **Any model:** the loop speaks plain JSON (`{"tool", "args"}` or `{"answer", "citations"}`) through the same provider interface as answering, so it runs on Ollama locally and on Claude unchanged. Replies are cached in `.cache/agent/`.
+- **Rules in code, not the prompt:** tools read only through `CallStore` (redacted data behind the manifest check), the index and `results/`; none takes a path, and `Tools` refuses a call store pointed at `data/raw/`. Arguments are validated, a repeated identical call is not re-run, and malformed replies use up a step.
+- **Citations are checked:** the answer may cite turn ids, call ids or a statistics result (`r2`) only if they appeared in a tool result during that run. Otherwise it becomes not found, as in the fixed pipeline.
+- **Evaluation:** 20 multi-step test-split questions in six types (speaker comparison, count plus example, locate then read the call, report plus statistics, three tools, unanswerable), each with expected tools and answers computed from the data. The eval reports tool-selection accuracy (and in order), task success, average steps and step-cap hits; `--compare-rag` also runs the 54 single-step questions through the agent next to the fixed pipeline's saved scores.
+- **PII guard:** `test_agent_never_sees_or_returns_planted_values` redacts calls with planted names, cards and emails, runs every tool while any attempt to open `data/raw` fails the test, and checks that no planted value appears in tool results, prompts, the answer or the step trace.
+
+## Web app
+
+```powershell
+# API (reads data/redacted/, the index and results/; serves web/dist when built)
+python -m callsearch.api.main                       # http://127.0.0.1:8000, API docs at /api/docs
+
+# Frontend in development (Node 20+), proxied to the API
+cd web; npm ci; npm run dev                         # http://localhost:5173
+
+# Production: build once, then the API serves the app at /
+cd web; npm run build; cd ..; python -m callsearch.api.main
+```
+
+FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React Router). Five pages, each built on one standard layout pattern:
+
+| page | pattern | what it is for |
+|---|---|---|
+| Ask (`/`) | split pane | Ask a question. The answer and its cited turns are on the left; the selected call's transcript is on the right, with the cited turn highlighted. A refusal explains why ("No call mentions 'sauna'"). |
+| Calls (`/calls`) | list | Search, filter, sort and page through the 400 redacted calls. The state lives in the URL, so views can be shared. |
+| Call (`/calls/:id`) | detail | Full redacted transcript, plus a Redactions tab with counts by type. `?turn=n` highlights a cited turn. |
+| Upload (`/upload`) | form | Add your own transcripts, one file or a batch. They are redacted in memory, saved with the redacted data and added to the search index; the page shows progress, links to the new calls and lists any lines that could not be read. |
+| Quality (`/quality`) | dashboard | Test-split results read from `results/`: redaction comparison, search and answer scores, index check, name models. |
+
+**API** (typed with Pydantic; the schema is at `/api/openapi.json`):
+
+| route | |
+|---|---|
+| `GET /api/health` | calls loaded, index status, answer model |
+| `POST /api/agent` | `{question}` → answer, cited turns, calls and statistics results, every step the agent took |
+| `POST /api/ask` | `{question, k, mode, split}` → cited answer, citations, discard reason, provenance, timing |
+| `GET /api/search` | retrieval only, no LLM |
+| `GET /api/calls` | `q`, `split`, `source`, `sort`, `order`, `page`, `page_size` |
+| `GET /api/calls/{id}` | redacted transcript and redaction counts |
+| `GET /api/metrics` | test-split results for the Quality page |
+| `POST /api/uploads` | multipart `files` → 202 and an upload job; redaction and indexing run in the background |
+| `GET /api/uploads/{id}` | job status (`queued`, `redacting`, `indexing`, `done`, `failed`), imported call ids, redaction counts, per-file issues |
+| `GET /api/uploads` | recent jobs since the server started |
+
+- **Redacted data only.** The API reads `data/redacted/` through its manifest check, the index and `results/`. It never opens `data/raw/`.
+- **Errors** always come back as `{"error": {"code", "message"}}`, and the message says how to fix the problem, for example "The search index is not built. Run: python scripts/build_index.py". A missing index, missing calls or an unreachable answer model return 503 with a stable code.
+- **Operations:** every response carries an `X-Request-ID`. Logs are JSON lines with method, path, status and timing, never question or transcript text (a test checks this). `/api/ask` is rate limited per client (`CALLSEARCH_ASK_PER_MINUTE`, default 20) and returns 429 with `Retry-After`. Security headers include a strict Content-Security-Policy (`'self'` only, no inline scripts), `nosniff`, `no-referrer` and `frame-ancestors 'none'`.
+- **Uploads:**
+  - **Formats:** `.txt` (one call, `Agent:` / `Customer:` lines, optional `[mm:ss]`), `.jsonl` (one call per line) or `.json` (a call or a list of calls), each turn `{"speaker", "text", "start_sec"?}`. Up to 20 files of 2 MB and 200 calls per upload; `CALLSEARCH_UPLOADS_PER_MINUTE` (default 10) limits uploads per client.
+  - **Redaction first:** files are parsed and redacted in memory with the same regex + DistilBERT pipeline as the dataset, then checked again for card, SIN, account, email and phone patterns. The raw text is never written to disk or logged. Problems are reported by location only ("Line 3: Not valid JSON"), never by quoting the file.
+  - **Where calls go:** uploaded calls get ids like `up-<job>-001`, split and source `upload`, so evaluation splits are unchanged. They are appended to `data/redacted/` (with a new manifest) and added to the existing index with the index's own embedding model. With no index built yet, they are saved and become searchable on the next `build_index.py` run.
+- **Typed end to end:** `scripts/export_openapi.py` writes `web/openapi.json`, and `npm run gen:api` generates `web/src/api/schema.d.ts` from it. `test_openapi_file_matches_code` fails if the API changes without regenerating, so the frontend types cannot drift.
+- **Accessibility:**
+  - **Navigation and focus:** a skip link; landmarks and labelled regions; focus moves to the page heading on navigation; a visible focus ring everywhere.
+  - **Keyboard:** `/` focuses the page's search, `Enter` asks, arrow keys move through sources and tabs.
+  - **Screen readers:** a live region announces answers. Redaction marks read as "redacted name", not "[PERSON]". Sortable columns expose `aria-sort`.
+  - **Display:** light and dark themes that follow the system or a toggle; reduced motion respected; no horizontal scrolling at 375 px; 44 px minimum touch targets.
+  - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page at 375 px and 1280 px.
+- **Design:** the standards (aesthetic, banned patterns, WCAG 2.1 AA target, voice, Lucide icons) are recorded in `.ux-profile.md`, and `AGENTS.md` points coding agents to it. Quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
+
+## AWS: S3 + Lambda redaction (optional)
+
+```text
+data/upload/*.jsonl ──aws s3 cp──► s3://callsearch-raw-<id>/incoming/      (KMS-encrypted, deleted after 7 days)
+                                        │ s3:ObjectCreated (*.jsonl)
+                                        ▼
+                                   Lambda callsearch-redact  (container image: regex + DistilBERT)
+                                        │
+                                        ▼
+                                   s3://callsearch-redacted-<id>/redacted/<batch>.jsonl + .manifest.json
+                                        │ scripts/pull_redacted.py (verifies every sha256)
+                                        ▼
+                                   data/redacted/ ──► scripts/build_index.py
+```
+
+- **Infrastructure** (`infra/terraform/`, region `us-west-2`): two private buckets with public access blocked and TLS-only policies. The raw bucket uses KMS encryption (the AWS-managed `aws/s3` key) and expires objects after 7 days; the redacted bucket uses SSE-S3. Also an ECR repository, the Lambda and its IAM role, the S3 trigger, a CloudWatch log group (14 days) and a monthly budget alarm by email.
+- **Least privilege:** the Lambda can read `incoming/*` from the raw bucket and write `redacted/*` to the redacted bucket, and nothing else.
+- **What leaves your machine:** `scripts/split_calls.py` strips labels and distractors, so only what a real transcript would contain is uploaded. The Docker build context is an allow-list (`.dockerignore`): `pyproject.toml`, `src/` and `models/ner_distilbert/` only, never data or `.env`.
+- **Same code as local:** the handler calls the same `redact_calls()` as `callsearch.redact.export`. Logs carry keys and counts, never transcript text.
+- **Image:** `public.ecr.aws/lambda/python:3.12` with CPU-only torch and the fine-tuned model baked in (no downloads at run time). It is a container image because torch and the model are far over Lambda's zip limit.
+
+**Deploy** (PowerShell, from the repo root, with the AWS CLI logged in and Docker running):
+
+```powershell
+cd infra/terraform
+copy terraform.tfvars.example terraform.tfvars        # set alert_email
+terraform init; terraform validate
+terraform apply                                       # 1st pass: buckets, ECR, IAM, budget (no Lambda yet)
+$ECR = terraform output -raw ecr_repository_url
+cd ../..
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
+docker build -f Dockerfile.lambda --platform linux/amd64 --provenance=false -t "${ECR}:v1" .
+docker push "${ECR}:v1"
+cd infra/terraform; terraform apply -var image_tag=v1; cd ../..   # 2nd pass: Lambda + trigger
+```
+
+**Run:**
+
+```powershell
+python scripts/split_calls.py --per-file 25
+aws s3 cp data/upload "s3://$(terraform -chdir=infra/terraform output -raw raw_bucket)/incoming/" --recursive
+aws logs tail /aws/lambda/callsearch-redact --follow
+python scripts/pull_redacted.py --bucket "$(terraform -chdir=infra/terraform output -raw redacted_bucket)"
+python scripts/build_index.py; python -m callsearch.rag.guard --allow-person-leaks
+```
+
+**Deployed run** (us-west-2, 3,008 MB, 16 batches of 25 calls): all 400 calls were redacted, with the batches running in parallel and finishing within about 30 seconds of each other. One batch (311 turns) took 147 s on a cold start and used 943 MB. The pulled output is byte-identical to the local `callsearch.redact.export --detector pipeline_hf` run (same sha256; 0 of 5,186 turns differ), so the cloud and local pipelines redact the same way.
+
+**Cost:** S3, Lambda and the AWS-managed KMS key cost cents at this scale. The main standing cost is ECR storage for the image (roughly 2 GB). The budget alarm emails at 80% of $5. `terraform destroy` removes everything, including both buckets and their contents.
 
 ## Data and results layout
 

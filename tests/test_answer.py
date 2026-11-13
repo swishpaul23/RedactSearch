@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from callsearch.rag.answer import NOT_FOUND, PROMPTS, Answerer, build_user_message, check_reply, parse_reply
+from callsearch.rag.answer import (NOT_FOUND, PROMPTS, Answerer, build_user_message, check_reply, parse_reply,
+                                   rare_terms, ungrounded)
 from callsearch.rag.store import Hit
 
 
@@ -22,9 +23,24 @@ class FakeIndex:
         self.hits = hits
         self.calls = []
 
-    def search(self, query, k=5, split=None):
-        self.calls.append((query, k, split))
+    def search(self, query, k=5, split=None, mode="dense"):
+        self.calls.append((query, k, split, mode))
         return self.hits[:k]
+
+    def with_neighbors(self, hits, n):
+        return [[h] for h in hits]  # no neighbouring turns stored
+
+    def doc_freq(self):
+        return self.df if hasattr(self, "df") else CommonWords()
+
+    def count(self):
+        return 1000
+
+
+class CommonWords(dict):
+    """doc_freq() stand-in: listed words have their counts, every other word is common."""
+    def get(self, key, default=None):
+        return super().get(key, 1000)
 
 
 class FakeProvider:
@@ -77,8 +93,9 @@ def test_ask_maps_citations_to_calls(tmp_path):
     assert [(c.call_id, c.turn_id, c.snippet) for c in a.citations] == [
         ("call_0001", 0, "I want a refund for the subscription I cancelled.")]
     assert a.retrieved == ["call_0001:0", "call_0002:3", "call_0003:1"]
-    assert idx.calls == [("why a refund?", 3, "test")]
-    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3}
+    assert idx.calls == [("why a refund?", 3, "test", "bm25")]
+    assert a.provenance == {"provider": "fake", "model": "fake-1", "prompt_version": "v1", "k": 3, "retrieval": "bm25",
+                            "neighbors": 1, "grounding": True}
     system, user = prov.seen[0]
     assert system == PROMPTS["v1"] and "[CARD]" in user  # only redacted index text goes in
 
@@ -112,3 +129,81 @@ def test_to_dict_is_json():
     a = Answerer(FakeIndex(), FakeProvider(reply("A refund.", [2])), cache_dir=None).ask("q")
     d = json.loads(json.dumps(a.to_dict()))
     assert d["citations"][0]["chunk_id"] == "call_0002:3" and d["found"] is True
+
+
+def test_mode_is_passed_to_the_index(tmp_path):
+    idx = FakeIndex()
+    a = Answerer(idx, FakeProvider(reply("A refund.", [1])), cache_dir=tmp_path, mode="hybrid").ask("q")
+    assert idx.calls[0][3] == "hybrid" and a.provenance["retrieval"] == "hybrid"
+
+
+class WindowIndex(FakeIndex):
+    """Adds the previous and next turn of each hit."""
+    def with_neighbors(self, hits, n):
+        return [[hit(h.call_id, h.turn_id - 1, "Is it expensive?", "customer"), h,
+                 hit(h.call_id, h.turn_id + 1, "Yes, very.", "agent")] for h in hits]
+
+
+def test_user_message_with_windows_marks_the_matched_turn():
+    windows = WindowIndex().with_neighbors(HITS[:1], 1)
+    msg = build_user_message("q", HITS[:1], windows)
+    assert "[1] call call_0001, turns -1-1 (matched turn 0):" in msg
+    assert "  * turn 0, customer at 0s: I want a refund" in msg and "    turn 1, agent at 3s: Yes, very." in msg
+    assert build_user_message("q", HITS[:1], [[HITS[0]]]) == build_user_message("q", HITS[:1])  # 1-turn = old format
+
+
+def test_neighbors_are_shown_but_citations_stay_on_matched_turns(tmp_path):
+    prov = FakeProvider(reply("Very expensive.", [2]))
+    a = Answerer(WindowIndex(), prov, k=2, cache_dir=tmp_path, neighbors=1).ask("q")
+    assert a.found and [c.chunk_id for c in a.citations] == ["call_0002:3"]
+    assert a.shown == ["call_0001:-1", "call_0001:0", "call_0001:1", "call_0002:2", "call_0002:3", "call_0002:4"]
+    assert "Yes, very." in prov.seen[0][1] and a.provenance["neighbors"] == 1
+
+
+def test_v2_prompt_is_used_and_keyed_separately(tmp_path):
+    prov = FakeProvider(reply("A refund.", [1]), reply("NOT_FOUND", []))
+    Answerer(FakeIndex(), prov, cache_dir=tmp_path, prompt_version="v1").ask("q")
+    a = Answerer(FakeIndex(), prov, cache_dir=tmp_path, prompt_version="v2").ask("q")  # not served from v1's cache
+    assert prov.seen[1][0] == PROMPTS["v2"] and "A wrong answer is worse than NOT_FOUND" in PROMPTS["v2"]
+    assert not a.found and a.provenance["prompt_version"] == "v2"
+
+
+
+# --- grounding check -------------------------------------------------------------------------
+
+def test_rare_terms_skips_question_words_and_common_words():
+    df = {"sauna": 0, "gonville": 3, "hotel": 400, "suggested": 0, "college": 2}
+    assert rare_terms("Which caller suggested a sauna at the Gonville hotel?", df, 5000) == ["sauna", "gonville"]
+    assert rare_terms("Which caller suggested a sauna at the Gonville hotel?", df, 1000) == ["sauna"]  # limit 1
+    assert rare_terms("What is the college's postcode?", df, 5000) == ["college", "postcode"]  # unseen word counts
+    assert rare_terms("hotel hotel", df, 5000) == []
+    assert ungrounded(["gonville", "sauna"], "The Gonville Hotel is in the centre.") == ["sauna"]
+
+
+def grounded_index(df):
+    idx = FakeIndex()
+    idx.df = df
+    return idx
+
+
+def test_unseen_question_word_skips_the_model(tmp_path):
+    prov = FakeProvider()  # would fail if called
+    a = Answerer(grounded_index(CommonWords(sauna=0)), prov, cache_dir=tmp_path).ask("Which guesthouse has a sauna?")
+    assert not a.found and a.rejected == "question term 'sauna' appears nowhere in the index" and prov.seen == []
+
+
+def test_answer_citing_an_excerpt_without_the_rare_word_is_rejected(tmp_path):
+    df = CommonWords()
+    idx = grounded_index(CommonWords(gym=1))
+    a = Answerer(idx, FakeProvider(reply("They want a refund.", [1])), cache_dir=tmp_path).ask("Why was the gym card charged?")
+    assert not a.found and a.citations == [] and a.rejected == "question term 'gym' is not in the cited excerpts"
+    ok = Answerer(grounded_index(CommonWords(gym=1)), FakeProvider(reply("Charged twice.", [2])),
+                  cache_dir=None).ask("Why was the gym card charged?")
+    assert ok.found and ok.citations[0].chunk_id == "call_0002:3"  # excerpt 2 mentions the gym
+    assert df.get("anything") == 1000
+
+
+def test_grounding_can_be_turned_off(tmp_path):
+    a = Answerer(grounded_index(CommonWords(sauna=0)), FakeProvider(reply("A refund.", [1])), cache_dir=tmp_path,
+                 grounding=False).ask("Which guesthouse has a sauna?")
+    assert a.found and a.provenance["grounding"] is False

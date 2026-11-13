@@ -18,7 +18,6 @@ python -m callsearch.redact.llm --split dev
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -33,6 +32,7 @@ from typing import Protocol
 
 from callsearch.redact.base import Detector, Span
 from callsearch.redact.merge import _rank, resolve_overlaps
+from callsearch.reply_cache import ReplyCache, reply_key
 
 ALLOWED_TYPES = ["PERSON", "EMAIL", "PHONE", "CARD", "SIN", "ACCOUNT"]  # anything else is a bad type
 # Post-filter: only these LLM types are kept. Regex is exact on the structured types, and on dev
@@ -446,17 +446,10 @@ class LLMDetector:
     # --- cache
     def _key(self, masked: str) -> str:
         p = self.provider
-        key = f"{p.name}\0{p.model}\0{self.prompt_version}\0{masked}"
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()
-
-    def _cache_path(self, key: str) -> Path | None:
-        return None if self.cache_dir is None else self.cache_dir / key[:2] / f"{key}.json"
+        return reply_key(p.name, p.model, self.prompt_version, masked)
 
     def _cached(self, masked: str) -> str | None:
-        path = self._cache_path(self._key(masked))
-        if path is not None and path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))["response"]
-        return None
+        return ReplyCache(self.cache_dir).get(self._key(masked))
 
     def _call(self, masked: str) -> str:
         with self._lock:
@@ -464,10 +457,7 @@ class LLMDetector:
                 raise BudgetExceeded(f"--max-requests {self.max_requests} reached")
             self.stats["requests"] += 1
         raw = self.provider.complete(self.system_prompt, masked)
-        path = self._cache_path(self._key(masked))
-        if path is not None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"response": raw}), encoding="utf-8")
+        ReplyCache(self.cache_dir).put(self._key(masked), raw)
         with self._lock:
             self.stats["completed"] += 1
             n = self.stats["completed"]

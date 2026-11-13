@@ -1,0 +1,8 @@
+# Allow-list: the build context holds only what the Lambda image needs.
+# Raw data, labels, redacted data, the index, results, caches and .env never enter it.
+*
+!pyproject.toml
+!src/
+!models/ner_distilbert/
+**/__pycache__
+**/*.pyc

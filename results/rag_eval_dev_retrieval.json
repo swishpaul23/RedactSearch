@@ -1,0 +1,156 @@
+{
+  "split": "dev",
+  "k": 5,
+  "retrieval": "dense",
+  "index": {
+    "embed_model": "bge-small",
+    "context_turns": 1,
+    "detector": "pipeline_hf",
+    "n_chunks": 5186
+  },
+  "llm": null,
+  "n_answerable": 15,
+  "n_unanswerable": 5,
+  "recall@1": 0.6,
+  "recall@3": 0.7333,
+  "recall@5": 0.7333,
+  "recall@10": 0.8,
+  "turn_hit@5": 0.7333,
+  "mrr@10": 0.6622,
+  "llm_requests": 0,
+  "llm_cache_hits": 0,
+  "questions": [
+    {
+      "id": "dev_a01",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        2
+      ]
+    },
+    {
+      "id": "dev_a02",
+      "answerable": true,
+      "rank": 3,
+      "turn_ranks": [
+        3
+      ]
+    },
+    {
+      "id": "dev_a03",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a04",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": []
+    },
+    {
+      "id": "dev_a05",
+      "answerable": true,
+      "rank": 2,
+      "turn_ranks": [
+        3
+      ]
+    },
+    {
+      "id": "dev_a06",
+      "answerable": true,
+      "rank": 10,
+      "turn_ranks": []
+    },
+    {
+      "id": "dev_a07",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a08",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a09",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a10",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a11",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_a12",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        3
+      ]
+    },
+    {
+      "id": "dev_a13",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": []
+    },
+    {
+      "id": "dev_a14",
+      "answerable": true,
+      "rank": null,
+      "turn_ranks": []
+    },
+    {
+      "id": "dev_a15",
+      "answerable": true,
+      "rank": 1,
+      "turn_ranks": [
+        1
+      ]
+    },
+    {
+      "id": "dev_u01",
+      "answerable": false
+    },
+    {
+      "id": "dev_u02",
+      "answerable": false
+    },
+    {
+      "id": "dev_u03",
+      "answerable": false
+    },
+    {
+      "id": "dev_u04",
+      "answerable": false
+    },
+    {
+      "id": "dev_u05",
+      "answerable": false
+    }
+  ]
+}

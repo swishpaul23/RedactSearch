@@ -181,6 +181,7 @@ def test_missing_index_error(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="build_index.py"):
         CallIndex(tmp_path / "nope").count()
+    assert not (tmp_path / "nope").exists()  # looking for an index never creates one
 
 
 def test_build_refuses_structured_pii(tmp_path):
@@ -241,3 +242,68 @@ def test_built_index_has_no_structured_pii():
 
     docs = [t for _, t in CallIndex(INDEX_DIR).documents()]
     assert docs and not any(pattern_scan(docs).values())
+
+
+# --- keyword and hybrid search -------------------------------------------------------------
+
+def test_tokenize_keeps_times_prices_ids_and_drops_placeholders():
+    from callsearch.rag.bm25 import tokenize
+
+    assert tokenize("TR7423 leaves at 05:00, 18.88 pounds. Thanks [PERSON]! saint john's") == [
+        "tr7423", "leaves", "05:00", "18.88", "pounds", "thanks", "saint", "john's"]
+    assert tokenize("[CARD] [PHONE]") == []
+
+
+def test_bm25_prefers_rare_exact_tokens():
+    from callsearch.rag.bm25 import BM25
+
+    docs = ["the train leaves at 05:00", "the train leaves at 07:35", "a table for two", "train train train"]
+    top = BM25(docs).top("train at 05:00", 2)
+    assert top[0][0] == 0 and len(top) == 2
+    assert BM25(docs).top("05:00", 5, allowed={1, 2}) == []
+    assert BM25([]).top("anything", 3) == []
+
+
+def test_rrf_rewards_agreement_and_keeps_first_seen_order_on_ties():
+    from callsearch.rag.bm25 import RRF_K, rrf
+
+    fused = rrf([["a", "b", "c"], ["b", "d"]])
+    assert [cid for cid, _ in fused] == ["b", "a", "d", "c"]
+    assert fused[0][1] == 1 / (RRF_K + 2) + 1 / (RRF_K + 1)
+    assert [cid for cid, _ in rrf([["x"], ["y"]])] == ["x", "y"]
+
+
+def test_search_modes(built):
+    from callsearch.rag.store import CallIndex
+
+    tmp_path, _ = built
+    index = CallIndex(tmp_path / "idx", embedder=FakeEmbedder())
+    for mode in ("dense", "bm25", "hybrid"):
+        top = index.search("refund subscription", k=2, mode=mode)
+        assert top[0].chunk_id == "call_9001:1" and len(top) <= 2, mode
+    assert all(h.split == "train" for h in index.search("parcel house", k=3, split="train", mode="bm25"))
+    assert all(h.split == "dev" for h in index.search("parcel house", k=3, split="dev", mode="hybrid"))
+    assert index.search("zzzz", k=3, mode="bm25") == []
+    with pytest.raises(ValueError, match="unknown search mode"):
+        index.search("refund", mode="magic")
+
+
+def test_with_neighbors_returns_ordered_windows(built):
+    from callsearch.rag.store import CallIndex
+
+    tmp_path, _ = built
+    index = CallIndex(tmp_path / "idx", embedder=FakeEmbedder())
+    hit = index.search("refund subscription", k=1)[0]  # call_9001:1, the last turn of its call
+    assert [w.chunk_id for w in index.with_neighbors([hit], 1)[0]] == ["call_9001:0", "call_9001:1"]
+    assert [w.chunk_id for w in index.with_neighbors([hit], 0)[0]] == ["call_9001:1"]
+    first = index.turns(["call_9002:0"])["call_9002:0"]
+    assert [w.chunk_id for w in index.with_neighbors([first], 2)[0]] == ["call_9002:0", "call_9002:1"]
+    assert index.turns([]) == {} and index.turns(["call_9999:0"]) == {}
+
+
+def test_doc_freq_counts_chunks_and_folds_possessives(built):
+    from callsearch.rag.store import CallIndex
+
+    tmp_path, _ = built
+    df = CallIndex(tmp_path / "idx", embedder=FakeEmbedder()).doc_freq()
+    assert df["hello"] == 1 and df["refund"] == 1 and df.get("sauna", 0) == 0
