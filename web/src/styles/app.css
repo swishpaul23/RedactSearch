@@ -242,14 +242,6 @@ a:hover {
   gap: var(--space-2);
 }
 
-.page-head-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
 .page-desc {
   max-width: var(--read-max);
   color: var(--ink-2);

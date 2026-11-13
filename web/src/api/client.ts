@@ -5,10 +5,6 @@ export type AgentAnswerOut = components["schemas"]["AgentAnswerOut"];
 export type AnswerOut = components["schemas"]["AnswerOut"];
 export type AskIn = components["schemas"]["AskIn"];
 export type CallDetail = components["schemas"]["CallDetail"];
-export type CallPage = components["schemas"]["CallPage"];
-export type CallSummary = components["schemas"]["CallSummary"];
-export type CitationOut = components["schemas"]["CitationOut"];
-export type HealthOut = components["schemas"]["HealthOut"];
 export type MetricsOut = components["schemas"]["MetricsOut"];
 export type UploadJob = components["schemas"]["UploadJob"];
 export type Mode = AskIn["mode"];
@@ -34,7 +30,7 @@ export const api = createClient<paths>({
 type Result<T> = { data?: T; error?: unknown; response: Response };
 
 /** Return data or throw an ApiError carrying the server's { error: { code, message } }. */
-export function unwrap<T>({ data, error, response }: Result<T>): T {
+function unwrap<T>({ data, error, response }: Result<T>): T {
   if (data !== undefined && response.ok) return data;
   const body = (error ?? {}) as { error?: { code?: string; message?: string } };
   throw new ApiError(

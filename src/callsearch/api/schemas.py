@@ -210,9 +210,6 @@ class UploadList(BaseModel):
     items: list[UploadJob]
 
 
-AgentTool = Literal["search_calls", "get_transcript", "compute_stats", "redaction_report"]
-
-
 class AgentIn(BaseModel):
     question: str = Field(min_length=3, max_length=500)
 

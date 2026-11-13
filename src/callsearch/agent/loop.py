@@ -59,9 +59,6 @@ Use digits for numbers. Answer in one to three sentences.
 If the question asks for several things, get all of them before answering.
 If the results cannot answer the question, reply {"answer": "NOT_FOUND", "citations": []}."""}
 
-CHUNK_ID = re.compile(r"^[\w.-]+:\d+$")
-
-
 @dataclass
 class Step:
     n: int
