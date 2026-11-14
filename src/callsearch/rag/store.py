@@ -22,7 +22,7 @@ from collections import Counter
 
 from callsearch.rag.bm25 import BM25, rrf, terms
 from callsearch.rag.chunk import Chunk
-from callsearch.rag.embed import Embedder, SentenceTransformerEmbedder
+from callsearch.rag.embed import Embedder, default_embedder
 
 DEFAULT_INDEX_DIR = Path("data/index/chroma")
 COLLECTION = "calls"
@@ -119,7 +119,7 @@ class CallIndex:
     def embedder(self) -> Embedder:
         model = self.info.get("embed_model")
         if self._embedder is None:
-            self._embedder = SentenceTransformerEmbedder(model)
+            self._embedder = default_embedder(model)
         if self._embedder.name != model:
             raise ValueError(f"index was built with {model!r}, query embedder is {self._embedder.name!r}")
         return self._embedder

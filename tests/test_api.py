@@ -11,6 +11,7 @@ from callsearch.api.main import RateLimiter, create_app
 from callsearch.api.services import CallStore, ResultsReader, Services, Unavailable
 from callsearch.rag.answer import NOT_FOUND, Answer, Citation
 from callsearch.rag.store import Hit
+from callsearch.redact.llm import MissingApiKey, ModelBusy
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,6 +44,10 @@ class FakeAnswerer:
             return Answer(question, NOT_FOUND, False, [], ["call_0001:1"], "question term 'boat' appears nowhere", prov)
         if "crash" in question:
             raise RuntimeError("Ollama is not running")
+        if "nokey" in question:
+            raise MissingApiKey("ANTHROPIC_API_KEY is not set")
+        if "busy" in question:
+            raise ModelBusy("quota")
         return Answer(question, "They want a refund.", True,
                       [Citation("call_0001:1", "call_0001", 1, "customer", 4.5, "I want a refund on card [CARD].")],
                       ["call_0001:1"], None, prov)
@@ -102,6 +107,19 @@ def test_ask_model_down_is_503_with_fix():
     r = client().post("/api/ask", json={"question": "crash please"})
     assert r.status_code == 503 and r.json()["error"]["code"] == "answer_model_unavailable"
     assert "Ollama" in r.json()["error"]["message"]
+
+
+def test_ask_without_api_key_says_what_still_works():
+    r = client().post("/api/ask", json={"question": "nokey please"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "answer_model_unavailable"
+    msg = r.json()["error"]["message"]
+    assert "ANTHROPIC_API_KEY" in msg and "Search" in msg and "Ollama" not in msg
+
+
+def test_ask_when_model_quota_is_spent_is_503_busy():
+    r = client().post("/api/ask", json={"question": "busy please"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "answer_model_busy"
+    assert "midnight Pacific" in r.json()["error"]["message"]
 
 
 class NoIndex:

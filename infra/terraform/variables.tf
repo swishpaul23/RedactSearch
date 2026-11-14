@@ -44,3 +44,58 @@ variable "lambda_timeout_s" {
   type        = number
   default     = 600
 }
+
+variable "api_image_tag" {
+  description = "Tag of the web API image (Dockerfile.api) in ECR. Leave empty until that image is pushed."
+  type        = string
+  default     = ""
+}
+
+variable "llm_provider" {
+  description = "Answer model for the web API: gemini (free tier) or anthropic."
+  type        = string
+  default     = "gemini"
+
+  validation {
+    condition     = contains(["gemini", "anthropic"], var.llm_provider)
+    error_message = "llm_provider must be gemini or anthropic."
+  }
+}
+
+variable "gemini_model" {
+  description = "Gemini model for answers. Free-tier limits are per Google Cloud project."
+  type        = string
+  default     = "gemini-2.5-flash"
+}
+
+variable "gemini_api_key" {
+  description = "Gemini API key (aistudio.google.com/apikey). Set it with the TF_VAR_gemini_api_key environment variable, not in a file. Terraform state holds it in plain text, which is why state stays local and gitignored."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "anthropic_api_key" {
+  description = "Only when llm_provider = anthropic. Set it with TF_VAR_anthropic_api_key, like the Gemini key."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "api_memory_mb" {
+  description = "API Lambda memory. CPU scales with memory; model loading and BM25 run on CPU."
+  type        = number
+  default     = 3008
+}
+
+variable "api_timeout_s" {
+  description = "API Lambda timeout. Vercel stops waiting for a proxied request after 120 seconds."
+  type        = number
+  default     = 120
+}
+
+variable "api_ask_per_minute" {
+  description = "Questions per minute per visitor (per warm instance)."
+  type        = number
+  default     = 10
+}

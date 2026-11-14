@@ -159,7 +159,8 @@ python -m callsearch.redact.llm --split dev --show-false 15   # correct vs false
 
   | `CALLSEARCH_LLM_PROVIDER` | Model setting | Key / host |
   |---|---|---|
-  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`, in the environment or the repo-root `.env` (gitignored). If the key isn't scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` (sent as the `anthropic-workspace-id` header). Only the provider reads `.env`, and only these names and the model name. The key is never printed, logged or committed. |
+  | `anthropic` (default) | `CALLSEARCH_LLM_MODEL` (default `claude-haiku-5-5`) | key from `ANTHROPIC_API_KEY`, in the environment or the repo-root `.env` (gitignored). If the key isn't scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` (sent as the `anthropic-workspace-id` header). Only `read_setting` reads `.env`, and only these key and model names. The key is never printed, logged or committed. |
+  | `gemini` (hosted demo) | `CALLSEARCH_GEMINI_MODEL` (default `gemini-2.5-flash`) | key from `GEMINI_API_KEY`, read like the Anthropic key; sent as a header, never in the URL. Free tier, JSON replies, thinking off. |
   | `ollama` (local) | `CALLSEARCH_OLLAMA_MODEL` | host from `OLLAMA_HOST` |
 
   Ollama runs at temperature 0. The anthropic SDK (1.15) no longer accepts sampling parameters, so Claude runs use the API default. Reruns are reproducible through the reply cache.
@@ -346,6 +347,32 @@ FastAPI backend and a React + TypeScript frontend (Vite, TanStack Query, React R
   - **Display:** light and dark themes that follow the system or a toggle; reduced motion respected; no horizontal scrolling at 375 px; 44 px minimum touch targets.
   - **Checks:** axe-core runs in the unit tests (`npm test`) and found no violations in a real-browser pass of every page at 375 px and 1280 px.
 - **Design:** the standards (aesthetic, banned patterns, WCAG 2.1 AA target, voice, Lucide icons) are recorded in `.ux-profile.md`, and `AGENTS.md` points coding agents to it. Quiet, document-review styling in Atkinson Hyperlegible Next, a typeface designed by the Braille Institute for legibility. Redacted values are solid ink marks, and the cited turn is the only highlighted thing on screen.
+
+## Deploy: Vercel + Lambda
+
+```
+browser ──► Vercel (web/dist) ──/api/*──► Lambda function URL ──► uvicorn + FastAPI (Dockerfile.api)
+```
+
+- **API on Lambda** (`Dockerfile.api`, `infra/terraform/api.tf`): the same FastAPI app as local, run by the [AWS Lambda Web Adapter](https://github.com/aws/aws-lambda-web-adapter), so there is no Lambda-specific code. The image installs `requirements-api.txt` (the API's run-time packages only: no torch, spaCy, Presidio or boto3). Questions are embedded with `bge-small` exported to ONNX by `scripts/export_onnx.py` in a build stage, and run with onnxruntime; the export is checked against sentence-transformers and fails the build if they differ. (With torch in the image, loading it on a cold Lambda took about 85 seconds.) The redacted calls, index, results and cached replies are baked in, chosen by an allow-list (`Dockerfile.api.dockerignore`), so raw data cannot enter the image. Lambda's disk is read-only except `/tmp`, so `docker/api-start.sh` copies the parts the app writes there. The role can write logs and nothing else.
+- **Uploads are off** (`CALLSEARCH_UPLOADS=off`, 503 `uploads_disabled`): Lambda freezes the process after each response, so a background job cannot finish. Run locally to upload.
+- **Vercel** (`web/vercel.json`): serves `web/dist` and rewrites `/api/*` to the function URL, so the browser talks to one origin and the CSP stays `connect-src 'self'`. Vercel waits up to 120 s for a proxied response, which is also the Lambda timeout.
+- **Cost:** nothing while idle; requests use Lambda's free tier at demo traffic. The first request after an idle spell starts a new instance (a cold start of several seconds). Answers come from Gemini's free tier (`GeminiProvider`, `llm_provider = "gemini"`), so they cost nothing; when its per-minute or daily quota runs out, Ask returns 503 `answer_model_busy` and the rest of the app keeps working. Google may use free-tier prompts to improve its products, which is acceptable here only because every transcript is synthetic and redacted. Set `llm_provider = "anthropic"` and `TF_VAR_anthropic_api_key` to use Claude instead.
+
+```powershell
+cd infra/terraform
+terraform apply                                       # creates the callsearch-api ECR repo; the redaction Lambda is unchanged
+$ECR = terraform output -raw api_ecr_repository_url
+cd ../..
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR.Split("/")[0]
+docker build -f Dockerfile.api --platform linux/amd64 --provenance=false -t "${ECR}:v1" .
+docker push "${ECR}:v1"
+$env:TF_VAR_gemini_api_key = "<key>"                  # from aistudio.google.com/apikey; kept out of files (Terraform state, local and gitignored, holds it)
+cd infra/terraform                                    # set api_image_tag = "v1" in terraform.tfvars, then:
+terraform apply; terraform output api_url
+```
+
+Then put the function URL's host in `web/vercel.json`, push, and in Vercel import the repo with **Root Directory** `web`.
 
 ## AWS: S3 + Lambda redaction (optional)
 

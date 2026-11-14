@@ -202,3 +202,12 @@ def test_upload_rate_limit(tmp_path):
     assert upload(c, ("a.csv", b"x")).status_code == 202
     r = upload(c, ("a.csv", b"x"))
     assert r.status_code == 429 and "Retry-After" in r.headers
+
+
+def test_uploads_can_be_turned_off(tmp_path):
+    svc = Services(calls=CallStore([]), index=None, results=ResultsReader(tmp_path), detector=detector())
+    c = TestClient(create_app(svc, web_dist=Path("/nonexistent"), uploads=UploadJobs(svc, InlineExecutor()),
+                              uploads_enabled=False))
+    r = upload(c, ("a.jsonl", b"{}"))
+    assert r.status_code == 503 and r.json()["error"]["code"] == "uploads_disabled"
+    assert c.get("/api/uploads").json() == {"items": []}

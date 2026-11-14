@@ -152,6 +152,30 @@ class _Usage:
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+class MissingApiKey(RuntimeError):
+    """No key for the answer model. Cached replies still work: the key is only needed on a cache miss."""
+
+
+class ModelBusy(RuntimeError):
+    """The model's rate limit or free quota is used up (HTTP 429), even after retrying."""
+
+
+SETTINGS = ("ANTHROPIC_API_KEY", "ANTHROPIC_WORKSPACE_ID", "CALLSEARCH_LLM_MODEL", "GEMINI_API_KEY",
+            "CALLSEARCH_GEMINI_MODEL")
+
+
+def read_setting(name: str, env_file: Path) -> str | None:
+    """Environment first, then the repo-root .env. Only the names in SETTINGS are ever read."""
+    assert name in SETTINGS
+    if os.environ.get(name):
+        return os.environ[name]
+    if env_file.exists():
+        from dotenv import dotenv_values
+
+        return dotenv_values(env_file).get(name) or None
+    return None
+
+
 class AnthropicProvider:
     """Claude via the Anthropic SDK.
 
@@ -178,15 +202,7 @@ class AnthropicProvider:
         self.price_out = float(os.environ.get("CALLSEARCH_LLM_PRICE_OUT", "5.0"))
 
     def _setting(self, name: str) -> str | None:
-        """Environment first, then .env. Only these three names are ever read."""
-        assert name in ("ANTHROPIC_API_KEY", "ANTHROPIC_WORKSPACE_ID", "CALLSEARCH_LLM_MODEL")
-        if os.environ.get(name):
-            return os.environ[name]
-        if self.env_file.exists():
-            from dotenv import dotenv_values
-
-            return dotenv_values(self.env_file).get(name) or None
-        return None
+        return read_setting(name, self.env_file)
 
     def has_key(self) -> bool:
         return bool(self._setting("ANTHROPIC_API_KEY"))
@@ -196,7 +212,7 @@ class AnthropicProvider:
         if self._client is None:
             key = self._setting("ANTHROPIC_API_KEY")
             if not key:
-                raise RuntimeError("ANTHROPIC_API_KEY is not set (environment or repo-root .env; never commit it)")
+                raise MissingApiKey("ANTHROPIC_API_KEY is not set (environment or repo-root .env; never commit it)")
             import anthropic
 
             workspace = self._setting("ANTHROPIC_WORKSPACE_ID")
@@ -258,13 +274,73 @@ class OllamaProvider:
         return data["message"]["content"]
 
 
+class GeminiProvider:
+    """Gemini through the Generative Language REST API (the hosted demo's free-tier model).
+
+    GEMINI_API_KEY and CALLSEARCH_GEMINI_MODEL come from the environment or the repo-root .env,
+    like the Anthropic settings. The key travels in a header, never in the URL, so it stays out of
+    logs. Replies are requested as JSON, which is what every prompt here asks for, and thinking is
+    off so the whole output budget goes to the answer.
+    """
+
+    name = "gemini"
+    default_workers = 2  # free-tier limits are a few requests per minute
+    default_prompt = "v2"
+    price_in = price_out = 0.0  # free tier
+    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    def __init__(self, model: str | None = None, max_tokens: int = 512, timeout: float = 45.0,
+                 attempts: int = 2, env_file: Path | None = None, post=None):
+        self.env_file = env_file or REPO_ROOT / ".env"
+        self.model = model or read_setting("CALLSEARCH_GEMINI_MODEL", self.env_file) or "gemini-2.5-flash"
+        self.max_tokens = max_tokens
+        self.timeout = timeout  # two attempts must fit inside the API's 120 s budget
+        self.attempts = attempts
+        self.usage = _Usage()
+        self._post = post or self._http_post
+
+    def _http_post(self, payload: dict, key: str) -> dict:
+        req = urllib.request.Request(self.URL.format(model=self.model), data=json.dumps(payload).encode("utf-8"),
+                                     headers={"Content-Type": "application/json", "x-goog-api-key": key})
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    def complete(self, system: str, user: str) -> str:
+        key = read_setting("GEMINI_API_KEY", self.env_file)
+        if not key:
+            raise MissingApiKey("GEMINI_API_KEY is not set (environment or repo-root .env; never commit it)")
+        payload = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": {"temperature": 0, "maxOutputTokens": self.max_tokens,
+                                 "responseMimeType": "application/json", "thinkingConfig": {"thinkingBudget": 0}}}
+        for attempt in range(1, self.attempts + 1):
+            try:
+                data = self._post(payload, key)
+                break
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt == self.attempts:
+                    raise ModelBusy("Gemini's rate limit or free daily quota is used up") from e
+                if e.code not in (429, 500, 503) or attempt == self.attempts:
+                    raise RuntimeError(f"Gemini returned HTTP {e.code}") from e
+                time.sleep(3 * attempt)
+        meta = data.get("usageMetadata", {})
+        self.usage.add(meta.get("promptTokenCount", 0), meta.get("candidatesTokenCount", 0))
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise RuntimeError(f"Gemini returned no answer ({data.get('promptFeedback', {}).get('blockReason', 'empty')})")
+        return "".join(p.get("text", "") for p in candidates[0].get("content", {}).get("parts", []))
+
+
 def default_provider() -> LLMProvider:
     kind = os.environ.get("CALLSEARCH_LLM_PROVIDER", "anthropic")
     if kind == "anthropic":
         return AnthropicProvider()
+    if kind == "gemini":
+        return GeminiProvider()
     if kind == "ollama":
         return OllamaProvider()
-    raise ValueError(f"unknown CALLSEARCH_LLM_PROVIDER {kind!r} (anthropic | ollama)")
+    raise ValueError(f"unknown CALLSEARCH_LLM_PROVIDER {kind!r} (anthropic | gemini | ollama)")
 
 
 # --- masking, parsing, offsets ---------------------------------------------------------

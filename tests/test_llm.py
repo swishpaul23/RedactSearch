@@ -390,12 +390,13 @@ def test_anthropic_workspace_header_from_dotenv(monkeypatch, tmp_path):
     assert seen["default_headers"] is None
 
 
-def test_dotenv_read_only_inside_anthropic_provider():
+def test_dotenv_read_only_inside_read_setting():
     import callsearch.redact.llm as llm_mod
 
     src = Path(llm_mod.__file__).read_text(encoding="utf-8")
-    assert src.count("dotenv") == src[src.index("class AnthropicProvider"):src.index("class OllamaProvider")].count(
-        "dotenv")
+    body = src[src.index("def read_setting"):src.index("class AnthropicProvider")]
+    assert src.count("dotenv") == body.count("dotenv") > 0
+    assert "assert name in SETTINGS" in body  # only the listed names are ever read
     assert "load_dotenv" not in src  # never loads the whole file into os.environ
 
 

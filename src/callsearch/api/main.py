@@ -36,6 +36,8 @@ from callsearch.ingest import MAX_FILE_BYTES, MAX_FILES
 WEB_DIST = Path(os.environ.get("CALLSEARCH_WEB_DIST", "web/dist"))
 ASK_PER_MINUTE = int(os.environ.get("CALLSEARCH_ASK_PER_MINUTE", "20"))
 UPLOADS_PER_MINUTE = int(os.environ.get("CALLSEARCH_UPLOADS_PER_MINUTE", "10"))
+# "off" in the hosted demo: Lambda freezes the process after each response, so a background job cannot run.
+UPLOADS_ENABLED = os.environ.get("CALLSEARCH_UPLOADS", "on") != "off"
 MAX_UPLOAD_BODY = MAX_FILES * MAX_FILE_BYTES + 1_000_000
 ERRORS = {r: {"model": ErrorOut} for r in (400, 404, 413, 422, 429, 503)}
 
@@ -80,7 +82,7 @@ def error(status: int, code: str, message: str, headers: dict | None = None) -> 
 
 def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_MINUTE,
                web_dist: Path = WEB_DIST, uploads: UploadJobs | None = None,
-               uploads_per_minute: int = UPLOADS_PER_MINUTE) -> FastAPI:
+               uploads_per_minute: int = UPLOADS_PER_MINUTE, uploads_enabled: bool = UPLOADS_ENABLED) -> FastAPI:
     svc = services or Services()
     limiter = RateLimiter(ask_per_minute)
     upload_limiter = RateLimiter(uploads_per_minute)
@@ -190,6 +192,9 @@ def create_app(services: Services | None = None, ask_per_minute: int = ASK_PER_M
 
     @app.post("/api/uploads", response_model=UploadJob, status_code=202, responses=ERRORS, tags=["uploads"])
     async def upload(request: Request, files: list[UploadFile] = File(description=".jsonl, .json or .txt")):
+        if not uploads_enabled:
+            return error(503, "uploads_disabled", "Uploads are turned off in the hosted demo. "
+                         "Run the app locally to redact and search your own transcripts.")
         client = request.client.host if request.client else "unknown"
         wait = upload_limiter.check(client)
         if wait:
