@@ -9,8 +9,10 @@
 # --- Stage 1: export the query embedder to ONNX (torch is needed here, not at run time).
 # Loading torch on a cold Lambda took ~85 s, past the 120 s limit with a query on top.
 FROM public.ecr.aws/docker/library/python:3.12-slim AS onnx
+# onnxruntime: the export is checked by running it, as the API will (same version chromadb installs).
 RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu \
- && pip install --no-cache-dir sentence-transformers==6.2.0 transformers==5.22.1 onnx==1.23.2 onnxscript==0.7.2
+ && pip install --no-cache-dir sentence-transformers==6.2.0 transformers==5.22.1 onnx==1.23.2 onnxscript==0.7.2 \
+    onnxruntime==1.32.0
 WORKDIR /build
 COPY src ./src
 COPY scripts/export_onnx.py ./scripts/export_onnx.py
