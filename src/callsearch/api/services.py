@@ -33,6 +33,23 @@ class Unavailable(RuntimeError):
         self.code = code
 
 
+def model_unavailable(e: Exception) -> Unavailable:
+    from callsearch.redact.llm import MissingApiKey, ModelBusy
+
+    if isinstance(e, MissingApiKey):
+        return Unavailable("answer_model_unavailable",
+                           "No answer model is configured here, so only questions answered before get a reply. "
+                           f"Search, Calls and Quality still work. ({e})")
+    if isinstance(e, ModelBusy):
+        return Unavailable("answer_model_busy",
+                           "The answer model's free quota is used up for now. Try again in a minute; if it "
+                           "keeps happening, the daily quota is spent and resets at midnight Pacific time. "
+                           "Search, Calls and Quality still work.")
+    return Unavailable("answer_model_unavailable",
+                       f"The answer model could not be reached: {e}. Check that Ollama is running "
+                       "or that CALLSEARCH_LLM_PROVIDER is set correctly.")
+
+
 class CallStore:
     """Redacted calls in memory, read once through the manifest check."""
 
@@ -247,9 +264,7 @@ class Services:
             except Unavailable:
                 raise
             except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-                raise Unavailable("answer_model_unavailable",
-                                  f"The answer model could not be reached: {e}. Check that Ollama is running "
-                                  "or that CALLSEARCH_LLM_PROVIDER is set correctly.") from e
+                raise model_unavailable(e) from e
 
     @property
     def detector(self):
@@ -306,6 +321,4 @@ class Services:
             except Unavailable:
                 raise
             except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
-                raise Unavailable("answer_model_unavailable",
-                                  f"The answer model could not be reached: {e}. Check that Ollama is running "
-                                  "or that CALLSEARCH_LLM_PROVIDER is set correctly.") from e
+                raise model_unavailable(e) from e

@@ -51,8 +51,32 @@ variable "api_image_tag" {
   default     = ""
 }
 
+variable "llm_provider" {
+  description = "Answer model for the web API: gemini (free tier) or anthropic."
+  type        = string
+  default     = "gemini"
+
+  validation {
+    condition     = contains(["gemini", "anthropic"], var.llm_provider)
+    error_message = "llm_provider must be gemini or anthropic."
+  }
+}
+
+variable "gemini_model" {
+  description = "Gemini model for answers. Free-tier limits are per Google Cloud project."
+  type        = string
+  default     = "gemini-2.5-flash"
+}
+
+variable "gemini_api_key" {
+  description = "Gemini API key (aistudio.google.com/apikey). Set it with the TF_VAR_gemini_api_key environment variable, not in a file. Terraform state holds it in plain text, which is why state stays local and gitignored."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "anthropic_api_key" {
-  description = "Key the API uses for answers. Set it with the TF_VAR_anthropic_api_key environment variable, not in a file. Terraform state holds it in plain text, which is why state stays local and gitignored."
+  description = "Only when llm_provider = anthropic. Set it with TF_VAR_anthropic_api_key, like the Gemini key."
   type        = string
   default     = ""
   sensitive   = true

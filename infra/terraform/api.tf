@@ -61,11 +61,16 @@ resource "aws_lambda_function" "api" {
   timeout       = var.api_timeout_s
 
   environment {
-    variables = {
-      ANTHROPIC_API_KEY         = var.anthropic_api_key
+    # Keys are added only when set, so an unset one stays absent rather than empty.
+    variables = merge({
+      CALLSEARCH_LLM_PROVIDER   = var.llm_provider
+      CALLSEARCH_GEMINI_MODEL   = var.gemini_model
       CALLSEARCH_ASK_PER_MINUTE = tostring(var.api_ask_per_minute)
       CALLSEARCH_UPLOADS        = "off"
-    }
+      },
+      var.gemini_api_key == "" ? {} : { GEMINI_API_KEY = var.gemini_api_key },
+      var.anthropic_api_key == "" ? {} : { ANTHROPIC_API_KEY = var.anthropic_api_key },
+    )
   }
 
   depends_on = [aws_cloudwatch_log_group.api, aws_iam_role_policy_attachment.api_logs]
